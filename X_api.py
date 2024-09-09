@@ -1,5 +1,3 @@
-# pip install git+https://github.com/tweepy/tweepy.git
-
 import os
 from dotenv import load_dotenv
 
@@ -9,10 +7,10 @@ import json
 
 # load API key
 load_dotenv()
-api_key = os.getenv('API_KEY')
-api_secret_key = os.getenv('API_SECRET_KEY')
-access_token = os.getenv('ACCESS_TOKEN')
-access_token_secret = os.getenv('ACCESS_TOKEN_SECRET')
+#api_key = os.getenv('API_KEY')
+#api_secret_key = os.getenv('API_SECRET_KEY')
+#access_token = os.getenv('ACCESS_TOKEN')
+#access_token_secret = os.getenv('ACCESS_TOKEN_SECRET')
 bearer_token = os.getenv("BEARER_TOKEN")
 
 # User fields are adjustable, options include:
@@ -28,8 +26,7 @@ def get_params():
     # in_reply_to_user_id, lang, non_public_metrics, organic_metrics,
     # possibly_sensitive, promoted_metrics, public_metrics, referenced_tweets,
     # source, text, and withheld
-    return {"tweet.fields": "created_at"}
-    #return {"expansions":"pinned_tweet_id"}
+    return {"expansions":"pinned_tweet_id", "tweet.fields": "created_at"}
 
 def create_url(user_name='elonmask'):
     # Replace with user ID below
@@ -37,7 +34,7 @@ def create_url(user_name='elonmask'):
     #return "https://api.twitter.com/2/users/{}/tweets".format(user_id)
     #params=get_params()
     #return "https://api.twitter.com/2/users/by/username/{}?expansions=pinned_tweet_id&tweet.fields=created_at".format(user_name)
-    return "https://api.twitter.com/2/users/by/username/{}?expansions=pinned_tweet_id".format(user_name)
+    return "https://api.twitter.com/2/users/by/username/{}".format(user_name)
 
 def bearer_oauth(r):
     """
@@ -48,8 +45,8 @@ def bearer_oauth(r):
     r.headers["User-Agent"] = "v2UserTweetsPython"
     return r
 
-def connect_to_endpoint(url):
-    response = requests.request("GET", url, auth=bearer_oauth)
+def connect_to_endpoint(url,params):
+    response = requests.request("GET", url, auth=bearer_oauth, params=params)
     print('code',response.status_code)
     print('response',response)
 
@@ -59,12 +56,13 @@ def connect_to_endpoint(url):
                 response.status_code, response.text
             )
         )
-    return response.json()
+    return response.json() # result doesn't show the same result as Postman
 
 
 def main():
     url = create_url()
-    json_response = connect_to_endpoint(url)
+    params = get_params()
+    json_response = connect_to_endpoint(url,params)
     print('json_response', json_response)
     print(json.dumps(json_response, indent=4, sort_keys=True))
 
