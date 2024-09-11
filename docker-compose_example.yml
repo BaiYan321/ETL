@@ -1,0 +1,21 @@
+version: "3.8" # docerk compose的version
+services:
+  db: # service 1 的名字，可以随意命名
+    container_name: postgres_container # 相当于起一个container,可以随意命名
+    image: postgres # 自动去找latest的image,如果没有给version，这个重要，自动找image template
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: etl_db #db的名字，可以随意命名
+    ports:
+      - "5432:5432"
+  pgadmin:
+    container_name: pgadmin4_container
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root
+    ports:
+      - "5050:80"

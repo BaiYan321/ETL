@@ -1,0 +1,19 @@
+# https://www.youtube.com/watch?v=nlk0QlPdbcY
+services:
+  db:
+    container_name: postgres_container
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: etl_db #name of the database
+    ports:
+      - "5432:5432"
+  adminer:
+    image: adminer # this is a random name for the
+    restart: always
+    depends_on:
+      - db # depends on the live of the previous database
+    ports:
+      - "8080:8080"
