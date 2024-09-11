@@ -28,12 +28,11 @@ def get_params():
     # source, text, and withheld
     return {"expansions":"pinned_tweet_id", "tweet.fields": "created_at"}
 
-def create_url(user_name='elonmask'):
+def create_url(user_name='CollinRugg'):
     # Replace with user ID below
     #user_id = 2244994945
     #return "https://api.twitter.com/2/users/{}/tweets".format(user_id)
     #params=get_params()
-    #return "https://api.twitter.com/2/users/by/username/{}?expansions=pinned_tweet_id&tweet.fields=created_at".format(user_name)
     return "https://api.twitter.com/2/users/by/username/{}".format(user_name)
 
 def bearer_oauth(r):
