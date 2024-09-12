@@ -28,7 +28,7 @@ def connect_to_endpoint(url,params):
                 response.status_code, response.text
             )
         )
-    return response.json() # result doesn't show the same result as Postman
+    return response.json()
 
 
 url = create_url()
