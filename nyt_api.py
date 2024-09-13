@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from datetime import datetime
 import requests
 import json
+import pandas as pd
+
 
 # load API key
 load_dotenv()
@@ -35,14 +37,20 @@ nyt_data = json.dumps(json_response, indent=4, sort_keys=True)
 nyt_data = json.loads(nyt_data)
 print(len(nyt_data['response']['docs']))
 
+temp_abstract=[]
+temp_pub_date=[]
+temp_document_type=[]
 for _ in range(len(nyt_data['response']['docs'])):
-    temp_abstract = nyt_data['response']['docs'][_]['abstract']
-    temp_pub_date = nyt_data['response']['docs'][_]['pub_date']
-    temp_document_type = nyt_data['response']['docs'][_]['document_type']
+    temp_abstract.append(nyt_data['response']['docs'][_]['abstract'])
+    temp_pub_date.append(nyt_data['response']['docs'][_]['pub_date'])
+    temp_document_type.append(nyt_data['response']['docs'][_]['document_type'])
 
-    print(temp_abstract)
-    print(temp_pub_date)
-    print(temp_document_type)
+dict = {'abstract': temp_abstract, 'pub_date': temp_pub_date, 'document_type':temp_document_type }
+
+df = pd.DataFrame(dict)
+
+
+    
 
 
 #print(nyt_data) #stock price is what we need
