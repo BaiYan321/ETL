@@ -9,7 +9,7 @@ from datetime import datetime
 import requests
 import json
 
-from nyt_api import create_nyt_url, connect_to_nyt_endpoint
+from python_code.nyt_api import create_nyt_url, connect_to_nyt_endpoint
 from marketstack_api import get_marketstack_params, create_marketstack_url, connect_to_marketstack_endpoint
 
 pg_user="root" # 与docker yaml文件里的db一致
