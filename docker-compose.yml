@@ -1,21 +1,38 @@
-# https://www.youtube.com/watch?v=nlk0QlPdbcY
 services:
-  db: # service 1 的名字，可以随意命名
-    container_name: postgres_container # 相当于起一个container,可以随意命名
-    image: postgres # 自动去找latest的image,如果没有给version，这个重要，自动找image template
-    restart: always
+  postgres:
+    image: postgres
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: root
-      POSTGRES_DB: etl_db #db的名字，可以随意命名
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
     ports:
       - "5432:5432"
-  pgadmin:
-    container_name: pgadmin4_container
-    image: dpage/pgadmin4
+
+  webserver:
+    image: puckel/docker-airflow:1.10.9
     restart: always
+    depends_on:
+      - postgres
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: root
+      - LOAD_EX=n #尝试y
+      - EXECUTOR=Local
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+    volumes: # mountj a directory as a volumne
+      - ./:/dags # dag folder
+      #- ./dags:/usr/local/airflow/dag
+      # - ./plugins:/usr/local/airflow/plugins
     ports:
-      - "8080:80"
+      - "8080:8080"
+    command: webserver
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f /usr/local/airflow/airflow-webserver.pid ]"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
