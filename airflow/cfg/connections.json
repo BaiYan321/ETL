@@ -1,0 +1,12 @@
+{
+  "local_postgres": {
+    "conn_type": "postgres",
+    "description": null,
+    "login": "airflow",
+    "password": "airflow",
+    "host": "localhost",
+    "port": 5432,
+    "schema": "test_postgres",
+    "extra": null
+  }
+}
