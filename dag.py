@@ -17,7 +17,7 @@ default_args = {
 }
 
 ##########################           marketstack                ##################################
-
+'''
 load_dotenv()
 # marketstack_access_key=os.getenv("MARKETSTACK_ACCESS_KEY")
 marketstack_access_key="89b1f6ae5016481cbcd3aa51153f136b"
@@ -46,7 +46,7 @@ def connect_to_marketstack_endpoint(u,p):
             )
         )
     return json.dumps(response.json(), indent=4, sort_keys=True)
-
+'''
 # 使用xcom的方法传递task之间的数据,为什么不work
 
 ##########################           nyt                ##################################
@@ -76,7 +76,7 @@ with DAG(
     start_date=datetime(2024, 9, 12),
     schedule_interval='@daily'
 ) as dag:
-
+'''
     task11 = PythonOperator(
         task_id='get_m_params',
         python_callable=get_marketstack_params
@@ -93,7 +93,7 @@ with DAG(
         task_id='connect_to_m_endpoint',
         python_callable=connect_to_marketstack_endpoint 
     )
-
+'''
     task21 = PythonOperator(
         task_id='create_n_url',
         python_callable=create_nyt_url,
@@ -105,7 +105,7 @@ with DAG(
         python_callable=connect_to_nyt_endpoint
     )
 
-    [task11, task12]>> task13 # 两个独立运行完，才进行下一个
+#    [task11, task12]>> task13 # 两个独立运行完，才进行下一个
     task21 >> task22
     
     

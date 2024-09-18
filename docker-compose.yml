@@ -25,8 +25,10 @@ services:
         max-size: 10m
         max-file: "3"
     volumes: # mountj a directory as a volumne
-      - ./:/dags # dag folder
-      #- ./dags:/usr/local/airflow/dag
+      #- ./dags:/dag # dag folder
+      #- C:\Users\ryanb\d2l-en\ETL\ETL\dags\:/usr/local/airflow/dag
+      - "C:/Users/ryanb/d2l-en/ETL/ETL/dags:/usr/local/airflow/dag"
+      - "C:/Users/ryanb/d2l-en/ETL/ETL/dags:/dag"
       # - ./plugins:/usr/local/airflow/plugins
     ports:
       - "8080:8080"
