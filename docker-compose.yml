@@ -1,21 +1,52 @@
-# https://www.youtube.com/watch?v=nlk0QlPdbcY
 services:
-  db: # service 1 的名字，可以随意命名
-    container_name: postgres_container # 相当于起一个container,可以随意命名
-    image: postgres # 自动去找latest的image,如果没有给version，这个重要，自动找image template
-    restart: always
+  airflow:
+    depends_on:
+      - postgres
+    build:
+      context: .
+      args:
+        AIRFLOW_VERSION: "2.9.3"
+        AIRFLOW_PYTHON_VERSION: "3.8"
+      dockerfile: Dockerfile
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: root
-      POSTGRES_DB: etl_db #db的名字，可以随意命名
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: "/airflow/dags"
+      AIRFLOW__CORE__PLUGINS_FOLDER: "/airflow/plugins"
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__FERNET_KEY: "rRM_xazRD5Z0m7buczl11_dMgZZ_bJKF1UgKzrU9ax0="
+      CONNECTION_CHECK_MAX_COUNT: "0"
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: airflow
+      _AIRFLOW_WWW_USER_PASSWORD: airflow
+    volumes:
+      - ./airflow:/airflow
+    ports:
+      - "8080:8080"
+    entrypoint: >
+      bash -c '
+        mkdir -p /airflow/app/logs
+        export PYTHONPATH="/airflow/dags:$PYTHONPATH"
+        airflow db init
+        airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} --firstname Admin --lastname User --role Admin --email admin@example.com --password ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+        exec supervisord -c /etc/supervisor/conf.d/supervisord.conf
+      '
+
+  postgres:
+    image: postgres:15.8
+    restart: always
     ports:
       - "5432:5432"
-  pgadmin:
-    container_name: pgadmin4_container
-    image: dpage/pgadmin4
-    restart: always
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: root
-    ports:
-      - "8080:80"
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - ./postgres_data:/docker-entrypoint-initdb.d  # Mount custom SQL scripts here
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 30s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  postgres_data:
