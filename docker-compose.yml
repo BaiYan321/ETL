@@ -1,52 +1,115 @@
 services:
-  airflow:
-    depends_on:
-      - postgres
+  # airflow:
+  #   depends_on:
+  #     - postgres
+  #   build:
+  #     context: .
+  #     args:
+  #       AIRFLOW_VERSION: "2.9.3"
+  #       AIRFLOW_PYTHON_VERSION: "3.8"
+  #     dockerfile: Dockerfile.airflow
+  #   environment:
+  #     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+  #     AIRFLOW__CORE__DAGS_FOLDER: "/airflow/dags"
+  #     AIRFLOW__CORE__PLUGINS_FOLDER: "/airflow/plugins"
+  #     AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+  #     AIRFLOW__CORE__FERNET_KEY: "rRM_xazRD5Z0m7buczl11_dMgZZ_bJKF1UgKzrU9ax0="
+  #     CONNECTION_CHECK_MAX_COUNT: "0"
+  #     _AIRFLOW_DB_MIGRATE: 'true'
+  #     _AIRFLOW_WWW_USER_CREATE: 'true'
+  #     _AIRFLOW_WWW_USER_USERNAME: airflow
+  #     _AIRFLOW_WWW_USER_PASSWORD: airflow
+  #   volumes:
+  #     - ./airflow:/airflow
+  #   ports:
+  #     - "8080:8080"
+  #   entrypoint: >
+  #     bash -c '
+  #       mkdir -p /airflow/app/logs
+  #       export PYTHONPATH="/airflow/dags:$PYTHONPATH"
+  #       airflow db init
+  #       airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} --firstname Admin --lastname User --role Admin --email admin@example.com --password ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+  #       exec supervisord -c /etc/supervisor/conf.d/supervisord.conf
+  #     '
+
+  # postgres:
+  #   image: postgres:15.8
+  #   restart: always
+  #   ports:
+  #     - "5432:5432"
+  #   environment:
+  #     POSTGRES_USER: airflow
+  #     POSTGRES_PASSWORD: airflow
+  #   volumes:
+  #     - ./postgres_data:/docker-entrypoint-initdb.d  # Mount custom SQL scripts here
+  #   healthcheck:
+  #     test: ["CMD", "pg_isready", "-U", "airflow"]
+  #     interval: 30s
+  #     retries: 3
+  #     start_period: 20s
+  spark-master:
     build:
       context: .
+      dockerfile: Dockerfile.spark
       args:
-        AIRFLOW_VERSION: "2.9.3"
-        AIRFLOW_PYTHON_VERSION: "3.8"
-      dockerfile: Dockerfile
-    environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-      AIRFLOW__CORE__DAGS_FOLDER: "/airflow/dags"
-      AIRFLOW__CORE__PLUGINS_FOLDER: "/airflow/plugins"
-      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
-      AIRFLOW__CORE__FERNET_KEY: "rRM_xazRD5Z0m7buczl11_dMgZZ_bJKF1UgKzrU9ax0="
-      CONNECTION_CHECK_MAX_COUNT: "0"
-      _AIRFLOW_DB_MIGRATE: 'true'
-      _AIRFLOW_WWW_USER_CREATE: 'true'
-      _AIRFLOW_WWW_USER_USERNAME: airflow
-      _AIRFLOW_WWW_USER_PASSWORD: airflow
-    volumes:
-      - ./airflow:/airflow
+        SPARK_VERSION: "3.5.1"
+    container_name: spark-master
     ports:
-      - "8080:8080"
-    entrypoint: >
-      bash -c '
-        mkdir -p /airflow/app/logs
-        export PYTHONPATH="/airflow/dags:$PYTHONPATH"
-        airflow db init
-        airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} --firstname Admin --lastname User --role Admin --email admin@example.com --password ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
-        exec supervisord -c /etc/supervisor/conf.d/supervisord.conf
-      '
-
-  postgres:
-    image: postgres:15.8
-    restart: always
-    ports:
-      - "5432:5432"
+      - "8080:8080" # Spark UI
+      - "7077:7077" # Spark Master port
+    # extra_hosts:
+    #   - "spark-master:172.23.0.3"
     environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master # Explicitly set Spark master host
+      - SPARK_NO_DAEMONIZE=true
+      - SPARK_DEPLOY_RECOVERY_MODE=NONE # Set this in the worker environment
     volumes:
-      - ./postgres_data:/docker-entrypoint-initdb.d  # Mount custom SQL scripts here
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
-      interval: 30s
-      retries: 3
-      start_period: 20s
+      - ./spark/data:/data
+      - ./spark/python_code:/usr/local/spark/python_code
+    entrypoint: [ "/opt/bitnami/spark/sbin/start-master.sh" ]
 
-volumes:
-  postgres_data:
+  spark-worker:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile.spark
+    #   args:
+    #     SPARK_VERSION: "3.5.1"
+    image: bitnami/spark:3.5.1
+    container_name: spark-worker
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=4G
+      - SPARK_WORKER_LOG_DIR=/data/spark-logs
+      - SPARK_DEPLOY_RECOVERY_MODE=NONE
+    volumes:
+      - ./spark/data:/data
+      - ./spark/data/spark-logs:/data/spark-logs
+    ports:
+      - "8081:8081"
+    # extra_hosts:
+    #   - "spark-master:172.23.0.3"
+    # entrypoint: [ "/opt/bitnami/spark/sbin/start-worker.sh", spark://spark-master:7077 ]
+
+  spark-history-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+      args:
+        SPARK_VERSION: "3.5.1"
+    container_name: spark-history-server
+    environment:
+      - SPARK_HISTORY_OPTS=-Dspark.history.fs.logDirectory=/data/spark-logs
+      - SPARK_NO_DAEMONIZE=true
+    volumes:
+      - ./spark/data/spark-logs:/data/spark-logs
+    ports:
+      - "18080:18080" # Spark History Server UI
+    entrypoint: [ "/opt/bitnami/spark/sbin/start-history-server.sh" ]
+
+# volumes:
+#   postgres_data:
