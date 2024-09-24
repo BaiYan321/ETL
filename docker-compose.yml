@@ -3,14 +3,14 @@ services:
     depends_on:
       - postgres
     build:
-      context: .
+      context: . #build时lock一个path
       args:
-        AIRFLOW_VERSION: "2.9.3"
+        AIRFLOW_VERSION: "2.9.3" #这里设定的参数，被dockerfile调用
         AIRFLOW_PYTHON_VERSION: "3.8"
       dockerfile: Dockerfile
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-      AIRFLOW__CORE__DAGS_FOLDER: "/airflow/dags"
+      AIRFLOW__CORE__DAGS_FOLDER: "/airflow/dags" #这些都是variable,所以没有冒号。varialbe被其他地方调用
       AIRFLOW__CORE__PLUGINS_FOLDER: "/airflow/plugins"
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AIRFLOW__CORE__FERNET_KEY: "rRM_xazRD5Z0m7buczl11_dMgZZ_bJKF1UgKzrU9ax0="
@@ -20,7 +20,7 @@ services:
       _AIRFLOW_WWW_USER_USERNAME: airflow
       _AIRFLOW_WWW_USER_PASSWORD: airflow
     volumes:
-      - ./airflow:/airflow
+      - ./airflow:/airflow #锁定当前的local folder到container里的airflow(即disk里的位置)。在dockercompse的文件里，人为建立的WORKDIR /airflow
     ports:
       - "8080:8080"
     entrypoint: >
@@ -36,7 +36,7 @@ services:
     image: postgres:15.8
     restart: always
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow

@@ -1,4 +1,5 @@
 # Arguments for Airflow and Python versions
+# ARG调用来自docker-compose里的参数
 ARG AIRFLOW_VERSION
 ARG AIRFLOW_PYTHON_VERSION
 
@@ -20,6 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
 # Switch to root user to install packages
 USER root
 
+# 通过Supervisord的方法，把scheduler, worker，webserver这三个service放到同一个container里。不然他们要独立3个container
 # Install supervisord and dos2unix
 RUN apt-get update && apt-get install -y \
     supervisor \
