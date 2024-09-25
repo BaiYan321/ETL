@@ -1,10 +1,11 @@
 
 from airflow.decorators import dag, task
+from airflow.models import Variable
 from datetime import datetime, timedelta
 import requests
 import json
 from dotenv import load_dotenv
-import os
+#import os
 
 default_args = {
     'owner': 'Ryan',
@@ -12,14 +13,17 @@ default_args = {
     'retry_delay': timedelta(minutes=5)
 }
 
-load_dotenv()
-marketstack_access_key=os.getenv("MARKETSTACK_ACCESS_KEY")
+#load_dotenv()
+#marketstack_access_key=os.getenv("MARKETSTACK_ACCESS_KEY")
+marketstack_access_key=Variable.get("MARKETSTACK_ACCESS_KEY")
+
 
 #使用decorator里的dag
-@dag(dag_id='dag_with_api_marketstack',
+@dag(dag_id='dag_with_marketstack_api',
     description='Our first dag with api',
     default_args=default_args,
     start_date=datetime(2024, 9, 20),
+    catchup=False,
     schedule_interval='@daily')
 
 def marketstack_etl():

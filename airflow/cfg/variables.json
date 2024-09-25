@@ -1,3 +1,7 @@
 {
-	"AIRFLOW_HOST": "http://localhost:8080/"
+	"AIRFLOW_HOST": "http://localhost:8080/",
+
+	"MARKETSTACK_ACCESS_KEY": "89b1f6ae5016481cbcd3aa51153f136b",
+
+	"NYT_KEY": "k03K6pbBIwWWbPvTpgCsUi8uGUSCG1Pt"
 }
