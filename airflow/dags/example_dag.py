@@ -15,7 +15,7 @@ def pull_xcom(**kwargs):
     ti = kwargs['ti']
     test = ti.xcom_pull(key='test', task_ids='push_task')
     test1 = ti.xcom_pull(key='test1', task_ids='push_task')
-    print(f"Value for 'test': {test}")
+    print(f"Value is 'test': {test}")
     print(f"Value for 'test1': {test1}")
 
 
