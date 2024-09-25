@@ -1,0 +1,35 @@
+# Use the base image
+FROM bitnami/spark:3.5.1
+
+# Ensure we are running as root
+USER root
+
+# Install required packages and clean up afterwards to reduce image size
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    dos2unix \
+    python3-pip \
+    rsync \
+    openssh-client && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Ensure Java 11 is used
+ENV JAVA_HOME=/opt/bitnami/java
+ENV PATH=$PATH:$JAVA_HOME/bin
+
+# Set up directories for Spark logs and event logs with correct permissions
+RUN mkdir -p /data/spark-logs && chmod -R 777 /data/spark-logs
+
+# Copy config files and Python code, ensuring Unix line endings
+COPY ./spark/conf/* /opt/bitnami/spark/conf/
+COPY ./spark/python_code/* /usr/local/spark/python_code/
+
+# Convert line endings to Unix format for config and Python files
+RUN find /opt/bitnami/spark/conf/ /usr/local/spark/python_code/ -type f -exec dos2unix {} \;
+
+# Copy the requirements.txt file and install Python dependencies
+COPY ./spark/requirements.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
+
+# Set the default command
+ENTRYPOINT ["/bin/bash"]
