@@ -29,9 +29,6 @@ with DAG(
         driver_memory='1g',
         verbose=True,
         conf={
-             # It doesn't work becuase it's local path "spark.executorEnv.JAVA_HOME": "C:\\Progra~2\\Java\\jdk1.8.0_202"
-            # "spark.executorEnv.JAVA_HOME": "/usr/lib/jvm/java-11-openjdk-amd64"
-        #    "spark.executorEnv.JAVA_HOME": "/usr/lib/jvm/java-17-openjdk-amd64"
             "spark.executorEnv.JAVA_HOME":"/usr/lib/jvm/java-17-openjdk-amd64"
     }
 )
