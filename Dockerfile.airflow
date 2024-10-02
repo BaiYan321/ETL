@@ -24,7 +24,7 @@ USER root
 
 # 通过Supervisord的方法，把scheduler, worker，webserver这三个service放到同一个container里。不然他们要独立3个container
 # Install supervisord and dos2unix
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y procps\
     supervisor \
     dos2unix && \
     rm -rf /var/lib/apt/lists/*

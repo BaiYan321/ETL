@@ -24,24 +24,24 @@ with DAG(
     schedule_interval='@daily'
 ) as dag:
     
-    @task() #每个task之前都要声明
-    def create_nyt_url(stock_name,page=1):
-        print(nyt_key)
-        return "https://api.nytimes.com/svc/search/v2/articlesearch.json?q={}&api-key={}&facet_fields=type_of_material&page={}".format(stock_name,nyt_key,page)
+    # @task() #每个task之前都要声明
+    # def create_nyt_url(stock_name,page=1):
+    #     print(nyt_key)
+    #     return "https://api.nytimes.com/svc/search/v2/articlesearch.json?q={}&api-key={}&facet_fields=type_of_material&page={}".format(stock_name,nyt_key,page)
     
-    @task()
-    def connect_to_nyt_endpoint(url):
-        response = requests.request("GET", url)
-        print('code',response.status_code)
-        if response.status_code != 200:
-            raise Exception(
-                "Request returned an error: {} {}".format(
-                    response.status_code, response.text
-                )
-            )
-        with open('nyt.json', 'w', encoding='utf-8') as f:
-            json.dump(response.json(), f, ensure_ascii=False, indent=4,sort_keys=True)
-        return
+    # @task()
+    # def connect_to_nyt_endpoint(url):
+    #     response = requests.request("GET", url)
+    #     print('code',response.status_code)
+    #     if response.status_code != 200:
+    #         raise Exception(
+    #             "Request returned an error: {} {}".format(
+    #                 response.status_code, response.text
+    #             )
+    #         )
+    #     with open('nyt.json', 'w', encoding='utf-8') as f:
+    #         json.dump(response.json(), f, ensure_ascii=False, indent=4,sort_keys=True)
+    #     return
     
 
     # @task()
@@ -79,11 +79,10 @@ with DAG(
 
     )
 
-    nyt_url = create_nyt_url('nvidia',8)
-    nyt_data = connect_to_nyt_endpoint(nyt_url)
+    # nyt_url = create_nyt_url('nvidia',8)
+    # nyt_data = connect_to_nyt_endpoint(nyt_url)
 
-    #marketstack_url = create_marketstack_url('NVDA')
-    #marketstack_data = connect_to_marketstack_endpoint(marketstack_url)
-
+    # marketstack_url = create_marketstack_url('NVDA')
+    # marketstack_data = connect_to_marketstack_endpoint(marketstack_url)
 
     submit_job
