@@ -13,10 +13,7 @@ default_args = {
     'retry_delay': timedelta(minutes=5)
 }
 
-#load_dotenv()
-#marketstack_access_key=os.getenv("MARKETSTACK_ACCESS_KEY")
 marketstack_access_key=Variable.get("MARKETSTACK_ACCESS_KEY")
-
 
 #使用decorator里的dag
 @dag(dag_id='dag_with_marketstack_api',

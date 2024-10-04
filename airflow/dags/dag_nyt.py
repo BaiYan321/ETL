@@ -12,8 +12,6 @@ default_args = {
     'retry_delay': timedelta(minutes=5)
 }
 
-#load_dotenv()
-#nyt_key=os.getenv("NYT_KEY")
 nyt_key=Variable.get("NYT_KEY")
 
 #使用decorator里的dag
@@ -46,10 +44,17 @@ def nyt_etl():
         #with open("nyt.json", "w") as outfile:
         #    outfile.write(nyt_data)
         #return
+
         return json.dumps(response.json(), indent=4, sort_keys=True)
+    
+
+        #这3行代码，是用于connect_to_nyt_endpoint(url):结尾，替代retun的哪一行
+        with open('nyt.json', 'w', encoding='utf-8') as f:
+            json.dump(response.json(), f, ensure_ascii=False, indent=4,sort_keys=True)
+        return
+
         
     url = create_nyt_url('nvidia',8)
     connect_to_nyt_endpoint(url)
 
-#create instance of our dag.
-nyt_data = nyt_etl()
+nyt_data=nyt_etl()
