@@ -45,12 +45,14 @@ def nyt_etl():
         #    outfile.write(nyt_data)
         #return
 
-        #json.dumps(response.json(), indent=4, sort_keys=True)
+        return json.dumps(response.json(), indent=4, sort_keys=True)
+    
 
+        #这3行代码，是用于connect_to_nyt_endpoint(url):结尾，替代retun的哪一行
         with open('nyt.json', 'w', encoding='utf-8') as f:
             json.dump(response.json(), f, ensure_ascii=False, indent=4,sort_keys=True)
         return
-        
+
         
     url = create_nyt_url('nvidia',8)
     connect_to_nyt_endpoint(url)
