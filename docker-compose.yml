@@ -22,6 +22,7 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: airflow
     volumes:
       - ./airflow:/airflow # Local airflow folder mounted into container
+      - ./spark/data:/airflow/data
     ports:
       - "8080:8080"
     entrypoint: >
@@ -89,8 +90,8 @@ services:
       - SPARK_NO_DAEMONIZE=true
       - SPARK_DEPLOY_RECOVERY_MODE=NONE # Set this in the worker environment
     volumes:
-      - spark_data:/data
-      - spark_logs:/data/spark-logs
+      - ./spark/data:/data
+      - ./spark/logs:/data/spark-logs
     entrypoint: [ "/opt/bitnami/spark/sbin/start-master.sh" ]
 
   spark-worker:
@@ -106,8 +107,8 @@ services:
       - SPARK_WORKER_LOG_DIR=/data/spark-logs
       - SPARK_DEPLOY_RECOVERY_MODE=NONE
     volumes:
-      - spark_data:/data
-      - spark_logs:/data/spark-logs
+      - ./spark/data:/data
+      - ./spark/logs:/data/spark-logs
     ports:
       - "8081:8081"
 
@@ -122,12 +123,10 @@ services:
       - SPARK_HISTORY_OPTS=-Dspark.history.fs.logDirectory=/data/spark-logs
       - SPARK_NO_DAEMONIZE=true
     volumes:
-      - spark_logs:/data/spark-logs
+      - ./spark/logs:/data/spark-logs
     ports:
       - "18080:18080" # Spark History Server UI
     entrypoint: [ "/opt/bitnami/spark/sbin/start-history-server.sh" ]
 
 volumes:
   postgres_data:
-  spark_data:
-  spark_logs:

@@ -69,15 +69,17 @@ with DAG(
     submit_job = SparkSubmitOperator(
         task_id='spark_job',
         application='./dags/spark_processing.py', # it works
-        conn_id='sparkdefault',  # Make sure the 'sparkdefault' connection is correctly set up
+        conn_id='spark_default',  # Make sure the 'sparkdefault' connection is correctly set up
         total_executor_cores=2,
         executor_memory='2g',
         num_executors=2,
         driver_memory='1g',
+        files='/data/marketstack.json',
         verbose=True,
         conf={
             'spark.dynamicAllocation.enabled': 'true',
-            "spark.executorEnv.JAVA_HOME":"/usr/lib/jvm/java-17-openjdk-amd64"
+            'spark.executorEnv.JAVA_HOME': '/opt/bitnami/java',
+            'spark.driverEnv.JAVA_HOME': '/opt/bitnami/java'
             },
 
     )

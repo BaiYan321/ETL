@@ -3,6 +3,7 @@ from pyspark.sql.types import StructType, ArrayType
 from pyspark.sql.functions import col, explode_outer
 
 import sys
+import os
 
 def flatten(df):
    #compute Complex Fields (Lists and Structs) in Schema   
@@ -32,18 +33,34 @@ def flatten(df):
 
 def process_data(file_path):
     spark = SparkSession.builder.appName("DataProcessing").getOrCreate()
+    
+    if os.path.exists(file_path):
 
-    df = spark.read.format("json") \
-            .option("multiLine", True) \
-            .option("header",True) \
-            .option("inferschema",True) \
-            .load(file_path)
-    df.show()
-    df=df.drop('pagination')
+      df = spark.read.format("json") \
+               .option("multiLine", True) \
+               .option("header",True) \
+               .option("inferschema",True) \
+               .load(file_path)
+      df.show()
+      df=df.drop('pagination')
 
-    df = flatten(df)
-    df.printSchema()
-    df.show()
+      df = flatten(df)
+      df.printSchema()
+      df.show()
+    else:
+      print("File not found!")
+
+   #  df = spark.read.format("json") \
+   #          .option("multiLine", True) \
+   #          .option("header",True) \
+   #          .option("inferschema",True) \
+   #          .load(file_path)
+   #  df.show()
+   #  df=df.drop('pagination')
+
+   #  df = flatten(df)
+   #  df.printSchema()
+   #  df.show()
 
     return df
 
@@ -96,6 +113,6 @@ spark.stop()
 
 if __name__ == "__main__":
     
-   file_path = "./data/marketstack.json" # ./nyt.json不行 nyt.json不行 /nyt.json不行 ./dags/nyt.json 不行 ./airflow/nyt.json 不行 ../nyt.json 不行 /airflow/nyt.json不行 ../nyt.json不行
+   file_path = "/data/marketstack.json" # ./nyt.json不行 nyt.json不行 /nyt.json不行 ./dags/nyt.json 不行 ./airflow/nyt.json 不行 ../nyt.json 不行 /airflow/nyt.json不行 ../nyt.json不行
    # file_path = "../nyt.json"
    process_data(file_path)
