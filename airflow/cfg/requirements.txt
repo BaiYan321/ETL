@@ -1,3 +1,4 @@
 pandas
 python-dotenv
 requests_oauthlib
+apache-airflow-providers-apache-spark
