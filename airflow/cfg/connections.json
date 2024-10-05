@@ -8,5 +8,12 @@
     "port": 5432,
     "schema": "test_postgres",
     "extra": null
+  },
+  {
+    "conn_id": "spark_default",
+    "conn_type": "spark",
+    "host": "spark://spark-master",
+    "port": 7077,
+    "extra": "{\"spark_binary\": \"/opt/bitnami/spark/bin/spark-submit\"}"
   }
 }

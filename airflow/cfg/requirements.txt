@@ -3,4 +3,5 @@ python-dotenv
 requests_oauthlib
 apache-airflow-providers-apache-spark
 apache-airflow
+confluent-kafka
 pyspark

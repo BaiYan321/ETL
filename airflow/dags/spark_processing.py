@@ -38,10 +38,12 @@ def process_data(file_path):
             .option("header",True) \
             .option("inferschema",True) \
             .load(file_path)
-    
+    df.show()
     df=df.drop('pagination')
 
     df = flatten(df)
+    df.printSchema()
+    df.show()
 
     return df
 
@@ -94,6 +96,6 @@ spark.stop()
 
 if __name__ == "__main__":
     
-    file_path = "../marketstack.json" # ./nyt.json不行 nyt.json不行 /nyt.json不行 ./dags/nyt.json 不行 ./airflow/nyt.json 不行 ../nyt.json 不行 /airflow/nyt.json不行 ../nyt.json不行
-
-    process_data(file_path)
+   file_path = "./data/marketstack.json" # ./nyt.json不行 nyt.json不行 /nyt.json不行 ./dags/nyt.json 不行 ./airflow/nyt.json 不行 ../nyt.json 不行 /airflow/nyt.json不行 ../nyt.json不行
+   # file_path = "../nyt.json"
+   process_data(file_path)
