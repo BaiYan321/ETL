@@ -1,7 +1,7 @@
 # Arguments for Airflow and Python versions
 # ARG调用来自docker-compose里的参数
-ARG AIRFLOW_VERSION
-ARG AIRFLOW_PYTHON_VERSION
+ARG AIRFLOW_VERSION=2.9.3
+ARG AIRFLOW_PYTHON_VERSION=3.11
 
 # Declare ARG before FROM and use them inside the FROM
 FROM apache/airflow:${AIRFLOW_VERSION}-python${AIRFLOW_PYTHON_VERSION}
@@ -15,30 +15,34 @@ COPY /airflow/cfg/variables.json  variables.json
 ARG AIRFLOW_VERSION
 ARG AIRFLOW_PYTHON_VERSION
 
-# Install Python dependencies from requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt \
-    --constraint https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${AIRFLOW_PYTHON_VERSION}.txt
-
-# Switch to root user to install packages
+# Install sudo and other necessary packages
 USER root
 
-# 通过Supervisord的方法，把scheduler, worker，webserver这三个service放到同一个container里。不然他们要独立3个container
+RUN mkdir -p /config/airflow
+COPY /airflow/cfg/connections.json /airflow/cfg/import_connections.py /airflow/cfg/requirements.txt /airflow/cfg/variables.json /config/airflow/
+
+# Set permissions for all copied files in one command
+RUN chmod 755 /config/airflow/connections.json \
+    && chmod 755 /config/airflow/import_connections.py \
+    && chmod 755 /config/airflow/requirements.txt \
+    && chmod 755 /config/airflow/variables.json
+
+RUN apt-get update && apt-get install -y sudo && \
+    echo "airflow ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+# Switch to airflow user to install Python dependencies
+USER airflow
+RUN pip install --no-cache-dir -r /config/airflow/requirements.txt \
+    --constraint https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${AIRFLOW_PYTHON_VERSION}.txt
+
+# Switch back to root user for further setup
+USER root
+
 # Install supervisord and dos2unix
-RUN apt-get update && apt-get install -y procps\
-    supervisor \
-    dos2unix && \
-    rm -rf /var/lib/apt/lists/*
-
-# test for Java Home
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-    openjdk-17-jre-headless \
-    && apt-get autoremove -yqq --purge \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/
-# test for Java Home
-
-
+RUN apt-get install -y --no-install-recommends openjdk-17-jdk supervisor dos2unix procps  && rm -rf /var/lib/apt/lists/*
+# Set Java environment variables
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH=$JAVA_HOME/bin:$PATH
 # Create directories for Supervisor's configuration and logs
 RUN mkdir -p /airflow/app/logs /etc/supervisor/conf.d
 
