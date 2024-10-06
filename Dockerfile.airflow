@@ -18,11 +18,12 @@ ARG AIRFLOW_PYTHON_VERSION
 # Install sudo and other necessary packages
 USER root
 
-RUN mkdir -p /config/airflow
+RUN mkdir -p /config/airflow /data
 COPY /airflow/cfg/connections.json /airflow/cfg/import_connections.py /airflow/cfg/requirements.txt /airflow/cfg/variables.json /config/airflow/
 
 # Set permissions for all copied files in one command
 RUN chmod 755 /config/airflow/connections.json \
+    && chmod 755 /data \
     && chmod 755 /config/airflow/import_connections.py \
     && chmod 755 /config/airflow/requirements.txt \
     && chmod 755 /config/airflow/variables.json
@@ -69,6 +70,8 @@ RUN chmod -R 755 /airflow/plugins
 
 # Set Airflow user back for security
 USER airflow
+
+# RUN pip install clickhouse-connect
 
 # test airflow home
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64

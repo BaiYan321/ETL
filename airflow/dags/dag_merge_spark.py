@@ -44,10 +44,6 @@ with DAG(
     #         json.dump(response.json(), f, ensure_ascii=False, indent=4,sort_keys=True)
     #     return
 
-    @task.bash
-    def bash_task() -> str:
-        return 'mkdir -p /airflow/data'    
-
     @task()
     def create_marketstack_url(stock_name='NVDA'):
         return 'http://api.marketstack.com/v1/eod?access_key={}&symbols={}'.format(marketstack_access_key,stock_name)
@@ -62,7 +58,7 @@ with DAG(
                     response.status_code, response.text
                 )
             )
-        with open('./data/marketstack.json', 'w', encoding='utf-8') as f:
+        with open('/data/marketstack.json', 'w', encoding='utf-8') as f:
             json.dump(response.json(), f, ensure_ascii=False, indent=4,sort_keys=True)
         return
 
@@ -87,9 +83,8 @@ with DAG(
     #nyt_url = create_nyt_url('nvidia',8)
     #nyt_data = connect_to_nyt_endpoint(nyt_url)
 
-    make_directory = bash_task()
     marketstack_url = create_marketstack_url('NVDA')
     marketstack_data = connect_to_marketstack_endpoint(marketstack_url)
 
-    make_directory >> marketstack_url >> marketstack_data >> submit_job
+    marketstack_url >> marketstack_data >> submit_job
     #submit_job
