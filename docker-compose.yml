@@ -22,7 +22,7 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: airflow
     volumes:
       - ./airflow:/airflow # Local airflow folder mounted into container
-      - ./spark/data:/airflow/data
+      - ./spark/data:/data
     ports:
       - "8080:8080"
     entrypoint: >
