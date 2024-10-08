@@ -1,7 +1,7 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, ArrayType
-from pyspark.sql.functions import col, explode_outer
-
+from pyspark.sql.functions import col, explode_outer, row_number, avg ,when
+from pyspark.sql import Window
 import sys
 import os
 
@@ -75,9 +75,9 @@ def process_data(file_path):
       df = df.withColumn("index", row_number().over(window_spec))
 
       # Apply conditional logic based on the index
-      df = df.withColumn("20DayMA", when(col("index") < 20, None))
-      df = df.withColumn("60DayMA", when(col("index") < 60, None))
-      df.drop("index")
+      df = df.withColumn("20-DayMA", when(col("index") < 20, None).otherwise(col("20DayMA")))
+      df = df.withColumn("60-DayMA", when(col("index") < 60, None).otherwise(col("60DayMA")))
+      df = df.drop("index","20DayMA","60DayMA")
 
       df = df.withColumn("Flactuation", ((df['High'] - df['Low'])/df['Low']))
 
