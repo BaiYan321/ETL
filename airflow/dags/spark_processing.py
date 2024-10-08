@@ -32,6 +32,7 @@ def flatten(df):
    return df
 
 def process_data(file_path):
+    
     spark = SparkSession.builder.appName("DataProcessing").getOrCreate()
     
     if os.path.exists(file_path):
@@ -41,75 +42,51 @@ def process_data(file_path):
                .option("header",True) \
                .option("inferschema",True) \
                .load(file_path)
-      df.show()
+
       df=df.drop('pagination')
 
       df = flatten(df)
+
+      df = df.select(col("data_symbol").alias("Symbol"), 
+                               col("data_date").alias("Date"), 
+                               col("data_open").alias("Open"), 
+                               col("data_close").alias("Close"), 
+                               col("data_low").alias("Low"), 
+                               col("data_high").alias("High"),  
+                               col("data_volume").alias("Volume"))
+      
+      df = df.withColumn('Date', df['Date'].cast('date')).orderBy("Date")
+
+      df = df.withColumn('Growth', (df['Close'] - df['Open']))\
+              .withColumn('Growth%', (df['Close'] - df['Open'])/df['Close'])
+      
+      # Define a window specification
+      windowSpec20 = Window.orderBy("Symbol").rowsBetween(-19, 0)
+      windowSpec60 = Window.orderBy("Symbol").rowsBetween(-59, 0)
+
+      # Calculate the 20-day/60-day moving average
+      df = df.withColumn("20DayMA", avg(col("Close")).over(windowSpec20))
+      df = df.withColumn("60DayMA", avg(col("Close")).over(windowSpec60))
+
+      # Define a window specification
+      window_spec = Window.orderBy("Date")  # Replace "some_column" with a column you want to order by
+
+      # Create an index column
+      df = df.withColumn("index", row_number().over(window_spec))
+
+      # Apply conditional logic based on the index
+      df = df.withColumn("20DayMA", when(col("index") < 20, None))
+      df = df.withColumn("60DayMA", when(col("index") < 60, None))
+      df.drop("index")
+
+      df = df.withColumn("Flactuation", ((df['High'] - df['Low'])/df['Low']))
+
       df.printSchema()
       df.show()
     else:
       print("File not found!")
 
-   #  df = spark.read.format("json") \
-   #          .option("multiLine", True) \
-   #          .option("header",True) \
-   #          .option("inferschema",True) \
-   #          .load(file_path)
-   #  df.show()
-   #  df=df.drop('pagination')
-
-   #  df = flatten(df)
-   #  df.printSchema()
-   #  df.show()
-
     return df
-
-
-'''
-spark = SparkSession.builder.appName("DataExtraction").getOrCreate()
-
-#Define the schema for the JSON file
-
-schema = StructType([
-    StructField("copyright", StringType(), True),
-    StructField("response", StringType(), True),
-    StructField("status", StringType(), True),
-    # Add more fields based on the actual structure of your JSON
-])
-
-#df = spark.read.schema(schema).option("mode", "PERMISSIVE").json('../nyt.json')
-df = spark.read.format("json") \
-          .option("multiLine", True) \
-          .option("header",True) \
-          .option("inferschema",True) \
-          .load("../nyt.json")
-
-df = df.drop("copyright", "status")
-
-
-#make the first row name of the column
-new_header = df.first()
-df_without_header = df.filter(df[col] != new_header[col] for col in df.columns)
-
-# Step 3: Rename columns using the first row values
-df_with_new_columns = df_without_header.toDF(*new_header)
-
-
-#
-#df1 = df.withColumn("response111", explode("response")) \
-#        .withColumn('docs', col("response111.docs"))
-
-# df1=df.withColumn("response111", split(df.response, ","))
-#df1=df.withColumn("response", explode("response"))
-
-#df2=df1.select(col("response.docs").alias("docs"))
-
-#df_flatten = flatten(df)
-#df_with_new_columns.show()
-df.show()
-spark.stop()
-
-'''
 
 if __name__ == "__main__":
     
