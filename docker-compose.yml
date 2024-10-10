@@ -128,5 +128,26 @@ services:
       - "18080:18080" # Spark History Server UI
     entrypoint: [ "/opt/bitnami/spark/sbin/start-history-server.sh" ]
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3.12-alpine
+    container_name: clickhouse
+    environment:
+      - CLICKHOUSE_DB=marketstack_db
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 
+      - CLICKHOUSE_PASSWORD=default
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse/
+      - ./clickhouse/log:/var/log/clickhouse-server/
+    healthcheck: 
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"] 
+      interval: 10s 
+      retries: 5 
+      start_period: 10s
+
 volumes:
   postgres_data:
+  clickhouse_data:

@@ -75,7 +75,8 @@ with DAG(
         conf={
             'spark.dynamicAllocation.enabled': 'true',
             'spark.executorEnv.JAVA_HOME': '/opt/bitnami/java',
-            'spark.driverEnv.JAVA_HOME': '/opt/bitnami/java'
+            'spark.driverEnv.JAVA_HOME': '/opt/bitnami/java',
+            'spark.jars': '/data/clickhouse-jdbc.jar'
             },
 
     )
