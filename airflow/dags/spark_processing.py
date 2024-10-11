@@ -178,7 +178,7 @@ def process(file_path):
          .format("jdbc") \
          .option("driver", "com.clickhouse.jdbc.ClickHouseDriver") \
          .option("url",clickhouse_url) \
-         .option("dbtable", "marketstack_db.marketstack") \
+         .option("dbtable", "marketstack_db.processed_marketstack") \
          .option("user", "default") \
          .option("password", "default") \
          .save()
