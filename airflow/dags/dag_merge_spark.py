@@ -61,6 +61,9 @@ with DAG(
         with open('/data/marketstack.json', 'w', encoding='utf-8') as f:
             json.dump(response.json(), f, ensure_ascii=False, indent=4,sort_keys=True)
         return
+    
+    # Kafka ProduceToTopicOperator https://airflow.apache.org/docs/apache-airflow-providers-apache-kafka/stable/operators/index.html#producetotopicoperator
+    # https://www.kafkatool.com/
 
     submit_job = SparkSubmitOperator(
         task_id='spark_job',
