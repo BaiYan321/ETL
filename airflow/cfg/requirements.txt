@@ -3,5 +3,8 @@ python-dotenv
 requests_oauthlib
 apache-airflow-providers-apache-spark
 apache-airflow
+asgiref
 confluent-kafka
+apache-airflow-providers-apache-kafka
 pyspark
+pendulum
