@@ -3,7 +3,6 @@
 from airflow.decorators import dag, task
 from airflow.providers.apache.kafka.operators.produce import ProduceToTopicOperator
 from airflow.providers.apache.kafka.operators.consume import ConsumeFromTopicOperator
-
 from pendulum import datetime
 import json
 import random

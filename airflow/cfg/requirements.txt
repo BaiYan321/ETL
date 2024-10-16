@@ -7,4 +7,5 @@ asgiref
 confluent-kafka
 apache-airflow-providers-apache-kafka
 pyspark
+kafka-python
 pendulum
