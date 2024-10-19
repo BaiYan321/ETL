@@ -6,7 +6,7 @@ import sys
 import os
 
 def import_kafka_nyt_data():
-   spark = SparkSession.builder.getOrCreate()
+   spark = SparkSession.builder.appName("Kafka-Spark-Streaming").getOrCreate()
    # Read from Kafka topic
    df = spark.readStream \
     .format("kafka") \
@@ -15,8 +15,8 @@ def import_kafka_nyt_data():
     .load()
     # Add more fields based on the actual structure of your JSON
 
-   df.show()
-   return df
+   query = df.show()
+   query.awaitTermination()
 
 
 def flatten(df):
@@ -52,11 +52,6 @@ def process(file_path):
                               .getOrCreate()
 
    clickhouse_url = "jdbc:clickhouse://clickhouse:8123/marketstack_db"
-   properties = {
-      "driver": "com.clickhouse.jdbc.ClickHouseDriver",
-      "user": "default",
-      "password": "default"
-   }    
 
    if os.path.exists(file_path):
 
@@ -125,10 +120,9 @@ def process(file_path):
    else:
       print("File not found!")
 
-   return df
 
 if __name__ == "__main__":
     
-   #file_path = "/data/marketstack.json"
-   #process(file_path)
-   import_kafka_nyt_data()
+   file_path = "/data/marketstack.json"
+   process(file_path)
+   #import_kafka_nyt_data()

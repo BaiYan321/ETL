@@ -31,8 +31,32 @@ services:
       bash -c '
         mkdir -p /airflow/app/logs
         export PYTHONPATH="/airflow/dags:$PYTHONPATH"
+        
+        # Initialize Airflow DB
         airflow db init
-        airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} --firstname Admin --lastname User --role Admin --email admin@example.com --password ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+        
+        # Create default Airflow user
+        airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} \
+          --firstname Admin --lastname User --role Admin --email admin@example.com \
+          --password ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+        
+        # Import connections from connections.json
+        if [ -f "/config/airflow/connections.json" ]; then
+          echo "Importing connections from connections.json..."
+          python /config/airflow/import_connections.py
+        else
+          echo "No connections.json file found, skipping connection import."
+        fi
+
+        # Import variables from variables.json
+        if [ -f "/config/airflow/variables.json" ]; then
+          echo "Importing variables from variables.json..."
+          airflow variables import /config/airflow/variables.json
+        else
+          echo "No variables.json file found, skipping variables import."
+        fi
+        
+        # Start Supervisor to run multiple Airflow services
         exec supervisord -c /etc/supervisor/conf.d/supervisord.conf
       '
 
@@ -187,6 +211,26 @@ services:
         echo -e 'Successfully created the following topics:'
         kafka-topics --bootstrap-server kafka1:29092 --list
         "
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3.12-alpine
+    container_name: clickhouse
+    networks:
+      - etl-network
+    environment:
+      - CLICKHOUSE_DB=marketstack_db
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 
+      - CLICKHOUSE_PASSWORD=default
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ./clickhouse/log:/var/log/clickhouse-server/
+    healthcheck: 
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"] 
+      interval: 10s 
+      retries: 5 
+      start_period: 10s
 volumes:
   postgres_data:
   # kafka_data:

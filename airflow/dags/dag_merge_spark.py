@@ -20,7 +20,7 @@ with DAG(
     default_args=default_args,
     dag_id='dag_extraction_processing',
     description='Use api to extract data and process data with spark',
-    start_date=datetime(2024, 10, 1),
+    start_date=datetime(2024, 10, 15),
     schedule_interval='@daily',
     catchup=False
 ) as dag:
@@ -65,19 +65,21 @@ with DAG(
         with open('./data/marketstack.json', 'w', encoding='utf-8') as f:
             json.dump(response.json(), f, ensure_ascii=False, indent=4,sort_keys=True)
         return
-
     submit_job = SparkSubmitOperator(
         task_id='spark_job',
         application='./dags/spark_processing.py', # it works
-        conn_id='sparkdefault',  # Make sure the 'sparkdefault' connection is correctly set up
+        conn_id='spark_default',  # Make sure the 'sparkdefault' connection is correctly set up
         total_executor_cores=2,
         executor_memory='2g',
         num_executors=2,
         driver_memory='1g',
+        files='/data/marketstack.json',
         verbose=True,
         conf={
             'spark.dynamicAllocation.enabled': 'true',
-            "spark.executorEnv.JAVA_HOME":"/usr/lib/jvm/java-17-openjdk-amd64"
+            'spark.executorEnv.JAVA_HOME': '/opt/bitnami/java',
+            'spark.driverEnv.JAVA_HOME': '/opt/bitnami/java',
+            'spark.jars': '/data/clickhouse-jdbc.jar'
             },
 
     )

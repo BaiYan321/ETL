@@ -1,5 +1,6 @@
-{
-  "local_postgres": {
+[
+  {
+    "conn_id": "test_postgres",
     "conn_type": "postgres",
     "description": null,
     "login": "airflow",
@@ -16,4 +17,4 @@
     "port": 7077,
     "extra": "{\"spark_binary\": \"/opt/bitnami/spark/bin/spark-submit\"}"
   }
-}
+]
