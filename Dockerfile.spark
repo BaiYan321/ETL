@@ -17,16 +17,6 @@ RUN apt-get update && \
 ENV JAVA_HOME=/opt/bitnami/java
 ENV PATH=$PATH:$JAVA_HOME/bin
 
-############################### working on YARN and HADOOP #####################
-# Setup the directories for our Spark and Hadoop installations
-# ENV HADOOP_HOME=${HADOOP_HOME:-"/opt/hadoop"}
-# RUN mkdir -p ${HADOOP_HOME}
-# # Download and install Hadoop
-# RUN curl https://dlcdn.apache.org/hadoop/common/hadoop-3.3.1/hadoop-3.3.1.tar.gz -o hadoop-3.3.1-bin.tar.gz \
-#  && tar xfz hadoop-3.3.1-bin.tar.gz --directory /opt/hadoop --strip-components 1 \
-#  && rm -rf hadoop-3.3.1-bin.gz
-############################### working on YARN and HADOOP #####################
-
 
 # Set up directories for Spark logs and event logs with correct permissions
 RUN mkdir -p /data/spark-logs && chmod -R 777 /data/spark-logs
@@ -40,6 +30,7 @@ RUN find /opt/bitnami/spark/conf/ /usr/local/spark/python_code/ -type f -exec do
 
 # Copy the requirements.txt file and install Python dependencies
 COPY ./spark/requirements.txt /tmp/requirements.txt
+
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
 # Set the default command

@@ -33,10 +33,6 @@ with DAG(
     catchup=False
 ) as dag:
 
-    @task.bash
-    def bash_task() -> str:
-        return 'mkdir -p /airflow/data'    
-
     # #################### use NYT data as a test
     # @task() #每个task之前都要声明
     # def create_nyt_url(stock_name,page=1):
@@ -121,25 +117,43 @@ with DAG(
         python_callable=run_kafka_producer
     )
 
-    submit_job = SparkSubmitOperator(
-        task_id='spark_kafka_job',
-        application='./dags/spark_processing.py', # it works
-        conn_id='spark_default',  # Make sure the 'sparkdefault' connection is correctly set up
-        total_executor_cores=2,
-        executor_memory='2g',
-        num_executors=2,
-        driver_memory='1g',
-        verbose=True,
-        conf={
-            'spark.dynamicAllocation.enabled': 'true',
-            "spark.executorEnv.JAVA_HOME":"/usr/lib/jvm/java-17-openjdk-amd64"
-            },
-    )
+    # submit_job = SparkSubmitOperator(
+    #     task_id='spark_kafka_job',
+    #     application='./dags/spark_processing.py', # it works
+    #     conn_id='spark_default',  # Make sure the 'sparkdefault' connection is correctly set up
+    #     total_executor_cores=2,
+    #     executor_memory='2g',
+    #     num_executors=2,
+    #     driver_memory='1g',
+    #     verbose=True,
+    #     conf={
+    #         'spark.dynamicAllocation.enabled': 'true',
+    #         "spark.executorEnv.JAVA_HOME":"/usr/lib/jvm/java-17-openjdk-amd64"
+    #         },
+    # )
+
+    # submit_job = SparkSubmitOperator(
+    #     task_id='spark_job',
+    #     application='./dags/spark_processing.py', # it works
+    #     conn_id='spark_default',  # Make sure the 'sparkdefault' connection is correctly set up
+    #     total_executor_cores=2,
+    #     executor_memory='2g',
+    #     num_executors=2,
+    #     driver_memory='1g',
+    #     # files='/data/marketstack.json',
+    #     verbose=True,
+    #     conf={
+    #         'spark.dynamicAllocation.enabled': 'true',
+    #         'spark.executorEnv.JAVA_HOME': '/opt/bitnami/java',
+    #         'spark.driverEnv.JAVA_HOME': '/opt/bitnami/java'
+    #         # 'spark.jars': '/data/clickhouse-jdbc.jar'
+    #         },
+    #     packages='org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.0'
+    # )
 
 
     topic_name = 'etl_topic'
     
-    make_directory = bash_task()
     #nyt_url = create_nyt_url('nvidia',8)
     #nyt_data = connect_to_nyt_endpoint(nyt_url)
     # create_topic = create_topic_if_not_exists(topic_name)
@@ -151,4 +165,5 @@ with DAG(
 
     # make_directory >> marketstack_url >> marketstack_data >> streaming_data >> submit_job
     # make_directory >> nyt_url >> nyt_data  >> streaming_data >> submit_job
-    make_directory >>   kafka_producer_task >> submit_job
+    # kafka_producer_task >> submit_job
+    kafka_producer_task

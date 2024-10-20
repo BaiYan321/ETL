@@ -24,7 +24,7 @@ services:
 
     volumes:
       - ./airflow:/airflow #锁定当前的local folder到container里的airflow(即disk里的位置)。在dockercompse的文件里，人为建立的WORKDIR /airflow
-      - ./spark/data:/airflow/data
+      - ./spark/data:/data
     ports:
       - "8080:8080"
     entrypoint: >
@@ -121,8 +121,8 @@ services:
       - ./spark/data/spark-logs:/data/spark-logs 
     ports:
       - "8081:8081"
-    # extra_hosts:
-    #   - "spark-master:172.23.0.3"
+    #command: >
+    #  bash -c "python spark_streaming.py"
 
   spark-history-server:
     build:
@@ -141,6 +141,7 @@ services:
     ports:
       - "18080:18080" # Spark History Server UI
     entrypoint: [ "/opt/bitnami/spark/sbin/start-history-server.sh" ]
+
 
   zoo1:
     image: confluentinc/cp-zookeeper:7.3.2

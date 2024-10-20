@@ -5,15 +5,23 @@ from pyspark.sql import Window
 import sys
 import os
 
+import logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s:%(funcName)s:%(levelname)s:%(message)s')
+logger = logging.getLogger("spark_structured_streaming")
+
 def import_kafka_nyt_data():
    spark = SparkSession.builder.appName("Kafka-Spark-Streaming").getOrCreate()
+   try:
+   
    # Read from Kafka topic
    df = spark.readStream \
-   .format("kafka") \
-   .option("kafka.bootstrap.servers", "kafka1:29092") \
-   .option("subscribe", "etl_topic") \
-   .load()
-   # Add more fields based on the actual structure of your JSON
+    .format("kafka") \
+    .option("kafka.bootstrap.servers", "kafka1:29092") \
+    .option("subscribe", "etl_topic") \
+    .load()
+    # Add more fields based on the actual structure of your JSON
+
    query = df.show()
    query.awaitTermination()
 
