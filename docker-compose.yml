@@ -90,8 +90,6 @@ services:
     ports:
       - "8082:8080" # Spark UI
       - "7077:7077" # Spark Master port
-    # extra_hosts:
-    #   - "spark-master:172.23.0.3"
     environment:
       - SPARK_MODE=master
       - SPARK_MASTER_HOST=spark-master # Explicitly set Spark master host
@@ -100,7 +98,7 @@ services:
     volumes:
       - ./spark/data:/data
       - ./spark/python_code:/usr/local/spark/python_code
-    entrypoint: [ "/opt/bitnami/spark/sbin/start-master.sh" ]
+    entrypoint: [ "/opt/bitnami/scripts/submit-job.sh" ]
 
   spark-worker:
     image: bitnami/spark:3.5.1
@@ -119,10 +117,9 @@ services:
     volumes:
       - ./spark/data:/data
       - ./spark/data/spark-logs:/data/spark-logs 
+      - ./spark/python_code:/usr/local/spark/python_code
     ports:
       - "8081:8081"
-    #command: >
-    #  bash -c "python spark_streaming.py"
 
   spark-history-server:
     build:
@@ -141,7 +138,6 @@ services:
     ports:
       - "18080:18080" # Spark History Server UI
     entrypoint: [ "/opt/bitnami/spark/sbin/start-history-server.sh" ]
-
 
   zoo1:
     image: confluentinc/cp-zookeeper:7.3.2
@@ -184,17 +180,6 @@ services:
       KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "true"
     depends_on:
       - zoo1
-    # command: sh -c "
-    #   echo 'wait for Kafka to start';
-    #   while ! nc -z kafka1:9092; do
-    #     sleep 1; 
-    #   done;
-    #   kafka-topics --bootstrap-server kafka1:9092 --list;
-    #   echo 'Creating Kafka topics';
-    #   kafka-topics --bootstrap-server kafka1:9092 --create --if-not-exists --topic test --replication-factor 1 --partitions 2;
-    #   echo 'Successfully created the following topics:';
-    #   kafka-topics --bootstrap-server kafka1:9092 --list;
-    #   "
 
   init-kafka:
     image: confluentinc/cp-kafka:7.3.2
