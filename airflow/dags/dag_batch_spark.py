@@ -66,9 +66,9 @@ with DAG(
         task_id='spark_job',
         application='./dags/spark_processing.py', # it works
         conn_id='spark_default',  # Make sure the 'sparkdefault' connection is correctly set up
-        total_executor_cores=2,
-        executor_memory='2g',
-        num_executors=2,
+        total_executor_cores=1,
+        executor_memory='1g',
+        num_executors=1,
         driver_memory='1g',
         files='/data/marketstack.json',
         verbose=True,
