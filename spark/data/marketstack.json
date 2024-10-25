@@ -1,11 +1,45 @@
 {
     "data": [
         {
+            "adj_close": 140.41,
+            "adj_high": 141.35,
+            "adj_low": 138.46,
+            "adj_open": 140.82,
+            "adj_volume": 171109038.0,
+            "close": 140.41,
+            "date": "2024-10-24T00:00:00+0000",
+            "dividend": 0.0,
+            "exchange": "XNAS",
+            "high": 141.35,
+            "low": 138.46,
+            "open": 140.82,
+            "split_factor": 1.0,
+            "symbol": "NVDA",
+            "volume": 172354888.0
+        },
+        {
+            "adj_close": 139.56,
+            "adj_high": 142.43,
+            "adj_low": 137.46,
+            "adj_open": 142.03,
+            "adj_volume": 285930038.0,
+            "close": 139.56,
+            "date": "2024-10-23T00:00:00+0000",
+            "dividend": 0.0,
+            "exchange": "XNAS",
+            "high": 142.43,
+            "low": 137.46,
+            "open": 142.03,
+            "split_factor": 1.0,
+            "symbol": "NVDA",
+            "volume": 285929969.0
+        },
+        {
             "adj_close": 143.59,
             "adj_high": 144.42,
             "adj_low": 141.78,
             "adj_open": 142.91,
-            "adj_volume": 222822625.0,
+            "adj_volume": 226311589.0,
             "close": 143.59,
             "date": "2024-10-22T00:00:00+0000",
             "dividend": 0.0,
@@ -15,7 +49,7 @@
             "open": 142.91,
             "split_factor": 1.0,
             "symbol": "NVDA",
-            "volume": 226202082.0
+            "volume": 226311594.0
         },
         {
             "adj_close": 143.71,
@@ -1665,40 +1699,6 @@
             "split_factor": 1.0,
             "symbol": "NVDA",
             "volume": 403323976.0
-        },
-        {
-            "adj_close": 114.9906,
-            "adj_high": 114.9904895799,
-            "adj_low": 111.9937374297,
-            "adj_open": 113.6116036222,
-            "adj_volume": 438391760.0,
-            "close": 1150.0,
-            "date": "2024-06-03T00:00:00+0000",
-            "dividend": 0.0,
-            "exchange": "XNAS",
-            "high": 1150.0,
-            "low": 1120.03,
-            "open": 1136.21,
-            "split_factor": 1.0,
-            "symbol": "NVDA",
-            "volume": 438391796.0
-        },
-        {
-            "adj_close": 109.624,
-            "adj_high": 112.7076783824,
-            "adj_low": 106.9311561363,
-            "adj_open": 112.5106946742,
-            "adj_volume": 613262500.0,
-            "close": 1096.33,
-            "date": "2024-05-31T00:00:00+0000",
-            "dividend": 0.0,
-            "exchange": "XNAS",
-            "high": 1127.17,
-            "low": 1069.4,
-            "open": 1125.2,
-            "split_factor": 1.0,
-            "symbol": "NVDA",
-            "volume": 613262454.0
         }
     ],
     "pagination": {

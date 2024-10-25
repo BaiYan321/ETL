@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 import requests
 import json
 
-nyt_key=Variable.get("NYT_KEY")
+#nyt_key=Variable.get("NYT_KEY")
+marketstack_access_key=Variable.get("MARKETSTACK_ACCESS_KEY")
 
 default_args = {
     'owner': 'Ryan',
@@ -25,13 +26,29 @@ with DAG(
     catchup=False
 ) as dag:
     
-    @task()
-    def create_nyt_url():
-        print(nyt_key)
-        return "https://api.nytimes.com/svc/mostpopular/v2/viewed/1.json?api-key={}".format(nyt_key)
+    # @task()
+    # def create_nyt_url():
+    #     print(nyt_key)
+    #     return "https://api.nytimes.com/svc/mostpopular/v2/viewed/1.json?api-key={}".format(nyt_key)
 
+    # @task()
+    # def connect_to_nyt_endpoint(url):
+    #     response = requests.request("GET", url)
+    #     print('code',response.status_code)
+    #     if response.status_code != 200:
+    #         raise Exception(
+    #             "Request returned an error: {} {}".format(
+    #                 response.status_code, response.text
+    #             )
+    #         )
+    #     return json.dumps(response.json(), indent=4, sort_keys=True) # return json data
+    
     @task()
-    def connect_to_nyt_endpoint(url):
+    def create_marketstack_url(stock_name='NVDA'):
+        return 'http://api.marketstack.com/v1/eod/latest?access_key={}&symbols={}'.format(marketstack_access_key,stock_name)
+    
+    @task()
+    def connect_to_marketstack_endpoint(url):
         response = requests.request("GET", url)
         print('code',response.status_code)
         if response.status_code != 200:
@@ -40,7 +57,10 @@ with DAG(
                     response.status_code, response.text
                 )
             )
-        return json.dumps(response.json(), indent=4, sort_keys=True) # return json data
+        with open('/data/marketstack.json', 'w', encoding='utf-8') as f:
+            json.dump(response.json(), f, ensure_ascii=False, indent=4,sort_keys=True)
+        return
+    
 
     @task
     def fetch_and_send_data(topic_name, data):

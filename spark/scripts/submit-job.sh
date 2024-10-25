@@ -15,8 +15,12 @@ echo "Spark master is up and running!"
 /opt/bitnami/spark/bin/spark-submit \
   --master spark://spark-master:7077 \
   --deploy-mode client \
-  --num-executors 1 \
-  --total-executor-cores 1 \
+  --executor-cores 1 \
   --executor-memory 1g \
+  --driver-cores 1 \
+  --conf spark.dynamicAllocation.enabled=false \
+  --conf spark.cores.max=1\
   --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:2.8.1 \
   /usr/local/spark/python_code/spark_streaming.py
+#--num-executors 1 \
+#--total-executor-cores 1 \

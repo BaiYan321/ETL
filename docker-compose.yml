@@ -111,7 +111,7 @@ services:
       - SPARK_MODE=worker
       - SPARK_MASTER=spark://spark-master:7077
       - SPARK_WORKER_CORES=2
-      - SPARK_WORKER_MEMORY=4G
+      - SPARK_WORKER_MEMORY=2G
       - SPARK_WORKER_LOG_DIR=/data/spark-logs
       - SPARK_DEPLOY_RECOVERY_MODE=NONE
     volumes:
