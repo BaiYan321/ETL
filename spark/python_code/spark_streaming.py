@@ -102,7 +102,7 @@ def start_streaming_app(max_retries=3, retry_delay=10):
             final_df = final_df.withColumn('Date', final_df['Date'].cast('date'))
 
             final_df = final_df.withColumn('Growth', (final_df['Close'] - final_df['Open']))\
-                    .withColumn('Growth%', (final_df['Close'] - final_df['Open'])/final_df['Close'])
+                    .withColumn('GrowthPct', (final_df['Close'] - final_df['Open'])/final_df['Close'])
             # #########################################################
 
             # Write the output to the console (for testing, use appropriate sink in production)

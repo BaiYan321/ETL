@@ -61,7 +61,7 @@ def process(file_path):
       df = df.withColumn('Date', df['Date'].cast('date')).orderBy("Date")
 
       df = df.withColumn('Growth', (df['Close'] - df['Open']))\
-              .withColumn('Growth%', (df['Close'] - df['Open'])/df['Close'])
+              .withColumn('GrowthPct', (df['Close'] - df['Open'])/df['Close'])
       
       # Define a window specification
       # windowSpec20 = Window.orderBy("Symbol").rowsBetween(-19, 0)

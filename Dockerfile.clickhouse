@@ -2,25 +2,11 @@ FROM clickhouse/clickhouse-server:24.3.12-alpine
 
 WORKDIR /clickhouse/
 
-USER root
-
 # Install curl
-#RUN apt-get update && apt-get install -y curl
 RUN apk update && apk add curl
-#RUN apt-get update && apt-get install -y curl
-#RUN apt-get update && apt-get install -y --no-install-recommends curl
 
-# Set up directories
-RUN mkdir -p /docker-entrypoint-initdb.d/
+COPY ./clickhouse/scripts/create_table.sh /create_table.sh
+RUN chmod +x /create_table.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/bin/sh", "-c", "/create_table.sh && tail -f /dev/null"]
 
-# Copy the create_table.sh script into the container
-COPY ./clickhouse/scripts/create_table.sh /docker-entrypoint-initdb.d/create_table.sh
-
-# Make the script executable
-RUN chmod +x /docker-entrypoint-initdb.d/create_table.sh
-
-# Default entrypoint is Supervisor to run multiple processes
-ENTRYPOINT ["/bin/bash"]
-
-# # Set entrypoint to the script if desired, or leave it as is
-# ENTRYPOINT ["/docker-entrypoint-initdb.d/create_table.sh"]
