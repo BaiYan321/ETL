@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, ArrayType
-from pyspark.sql.functions import col, explode_outer
+from pyspark.sql.functions import col, explode_outer, from_json, col, explode
+from pyspark.sql.types import StructType, StructField, ArrayType, FloatType, StringType, LongType
 import time
 
 def flatten(df):
@@ -39,6 +39,41 @@ def start_streaming_app(max_retries=3, retry_delay=10):
                 .config("spark.driver.extraClassPath", "/data/clickhouse-jdbc.jar") \
                 .getOrCreate()
 
+            #########################################
+
+            # Define schema for "data" array
+            data_schema = ArrayType(StructType([
+                StructField("adj_close", FloatType(), True),
+                StructField("adj_high", FloatType(), True),
+                StructField("adj_low", FloatType(), True),
+                StructField("adj_open", FloatType(), True),
+                StructField("adj_volume", FloatType(), True),
+                StructField("close", FloatType(), True),
+                StructField("date", StringType(), True),
+                StructField("dividend", FloatType(), True),
+                StructField("exchange", StringType(), True),
+                StructField("high", FloatType(), True),
+                StructField("low", FloatType(), True),
+                StructField("open", FloatType(), True),
+                StructField("split_factor", FloatType(), True),
+                StructField("symbol", StringType(), True),
+                StructField("volume", LongType(), True)
+            ]))
+
+            # Define schema for full JSON
+            schema = StructType([
+                StructField("data", data_schema, True),
+                StructField("pagination", StructType([
+                    StructField("count", LongType(), True),
+                    StructField("limit", LongType(), True),
+                    StructField("offset", LongType(), True),
+                    StructField("total", LongType(), True)
+                ]), True)
+            ])
+
+            # Initialize Spark session
+            #spark = SparkSession.builder.appName("KafkaSparkJSONProcessing").getOrCreate()
+
             # Read from Kafka topic
             df = spark.readStream \
                 .format("kafka") \
@@ -46,43 +81,47 @@ def start_streaming_app(max_retries=3, retry_delay=10):
                 .option("subscribe", "etl_topic") \
                 .load()
 
-            # Transform the data as needed, example: cast the value as a string
-            # df = df.selectExpr("CAST(value AS STRING)")
-            #########################################################
-            df=df.drop('pagination')
+            # Convert Kafka value to string
+            json_df = df.selectExpr("CAST(value AS STRING) as json_string")
 
-            df = flatten(df)
+            # Parse JSON and select only "data" array, then expand elements
+            parsed_df = json_df.withColumn("parsed_json", from_json(col("json_string"), schema)) \
+                .select(explode("parsed_json.data").alias("data_element"))
 
-            df = df.select(col("data_symbol").alias("Symbol"), 
-                               col("data_date").alias("Date"), 
-                               col("data_open").alias("Open"), 
-                               col("data_close").alias("Close"), 
-                               col("data_low").alias("Low"), 
-                               col("data_high").alias("High"),  
-                               col("data_volume").alias("Volume"))
-      
-            df = df.withColumn('Date', df['Date'].cast('date')).orderBy("Date")
+            # Select fields from data_element
+            final_df = parsed_df.select(
+                col("data_element.symbol").alias("Symbol"),
+                col("data_element.date").alias("Date"),
+                col("data_element.open").alias("Open"),
+                col("data_element.close").alias("Close"),
+                col("data_element.low").alias("Low"),
+                col("data_element.high").alias("High"),  
+                col("data_element.volume").alias("Volume")
+                )
 
-            df = df.withColumn('Growth', (df['Close'] - df['Open']))\
-                    .withColumn('Growth%', (df['Close'] - df['Open'])/df['Close'])
-            #########################################################
+            final_df = final_df.withColumn('Date', final_df['Date'].cast('date'))
+
+            final_df = final_df.withColumn('Growth', (final_df['Close'] - final_df['Open']))\
+                    .withColumn('Growth%', (final_df['Close'] - final_df['Open'])/final_df['Close'])
+            # #########################################################
 
             # Write the output to the console (for testing, use appropriate sink in production)
             clickhouse_url = "jdbc:clickhouse://clickhouse:8123/marketstack_db"
-            
-            query = df.write \
-                .format("jdbc") \
-                .option("driver", "com.clickhouse.jdbc.ClickHouseDriver") \
-                .option("url",clickhouse_url) \
-                .option("dbtable", "marketstack_db.marketstack_streaming") \
-                .option("user", "default") \
-                .option("password", "default") \
-                .mode("append") \
-                .save()
-                
-            query = query.writeStream \
-                        .outputMode('append') \
-                        .start()
+                    
+            query = final_df.writeStream \
+                    .foreachBatch(lambda batch_df, batch_id: batch_df.write \
+                        .format("jdbc") \
+                        .option("driver", "com.clickhouse.jdbc.ClickHouseDriver") \
+                        .option("url", clickhouse_url) \
+                        .option("dbtable", "marketstack_db.marketstack_streaming") \
+                        .option("user", "default") \
+                        .option("password", "default") \
+                        .mode("append") \
+                        # .format("console") \
+                        # .mode("append") \
+                        .save()) \
+                    .trigger(processingTime="10 seconds") \
+                    .start()
 
             # Await termination of the streaming query
             query.awaitTermination()

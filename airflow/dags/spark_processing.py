@@ -33,15 +33,10 @@ def flatten(df):
 
 def process(file_path):
    spark = SparkSession.builder.appName("DataProcessing") \
-                              .config("spark.driver.extraClassPath", "/data/clickhouse-jdbc.jar") \
                               .getOrCreate()
-
+                              # .config("spark.driver.extraClassPath", "/data/clickhouse-jdbc.jar") \
+# 
    clickhouse_url = "jdbc:clickhouse://clickhouse:8123/marketstack_db"
-   properties = {
-      "driver": "com.clickhouse.jdbc.ClickHouseDriver",
-      "user": "default",
-      "password": "default"
-   }    
 
    if os.path.exists(file_path):
 

@@ -57,13 +57,13 @@ with DAG(
                     response.status_code, response.text
                 )
             )
-        with open('/data/marketstack.json', 'w', encoding='utf-8') as f:
-            json.dump(response.json(), f, ensure_ascii=False, indent=4,sort_keys=True)
-        return
+        #with open('/data/marketstack.json', 'w', encoding='utf-8') as f:
+        return json.dumps(response.json(), indent=4, sort_keys=True)
+         
     
-
     @task
     def fetch_and_send_data(topic_name, data):
+        print(data)
         kafka_producer = KafkaProducer(bootstrap_servers='kafka1:29092', value_serializer=lambda v: v.encode('utf-8'))
         kafka_producer.send('etl_topic', value=data)
         # Close the producer
@@ -71,8 +71,8 @@ with DAG(
         kafka_producer.close()
         print(f"Sent new data to:'{topic_name}'")
     
-    nyt_url = create_nyt_url()
-    nyt_data = connect_to_nyt_endpoint(nyt_url)
-    kafka_data = fetch_and_send_data('etl_topic', nyt_data)
+    marketstack_url = create_marketstack_url()
+    marketstack_data = connect_to_marketstack_endpoint(marketstack_url)
+    kafka_data = fetch_and_send_data('etl_topic', marketstack_data)
     
-    nyt_url >> nyt_data >> kafka_data
+    marketstack_url >> marketstack_data >> kafka_data
