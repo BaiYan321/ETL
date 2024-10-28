@@ -71,6 +71,8 @@ RUN chmod -R 755 /airflow/plugins
 # Set Airflow user back for security
 USER airflow
 
+# RUN pip install clickhouse-connect
+
 # test airflow home
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 # test airflow home

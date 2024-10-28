@@ -2,7 +2,10 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, ArrayType
 from pyspark.sql.functions import col, explode_outer, row_number, avg ,when
 from pyspark.sql import Window
+from pyspark.sql.functions import col, explode_outer, row_number, avg ,when
+from pyspark.sql import Window
 import sys
+import os
 import os
 
 def flatten(df):
@@ -40,6 +43,13 @@ def process(file_path):
 
    if os.path.exists(file_path):
 
+      df = spark.read.format("json") \
+               .option("multiLine", True) \
+               .option("header",True) \
+               .option("inferschema",True) \
+               .load(file_path)
+
+      df=df.drop('pagination')
       df = spark.read.format("json") \
                .option("multiLine", True) \
                .option("header",True) \

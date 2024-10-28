@@ -60,6 +60,7 @@ with DAG(
                 )
             )
         with open('/data/marketstack.json', 'w', encoding='utf-8') as f:
+        with open('/data/marketstack.json', 'w', encoding='utf-8') as f:
             json.dump(response.json(), f, ensure_ascii=False, indent=4,sort_keys=True)
         return
     submit_job = SparkSubmitOperator(
@@ -71,9 +72,13 @@ with DAG(
         num_executors=1,
         driver_memory='1g',
         files='/data/marketstack.json',
+        files='/data/marketstack.json',
         verbose=True,
         conf={
             'spark.dynamicAllocation.enabled': 'true',
+            'spark.executorEnv.JAVA_HOME': '/opt/bitnami/java',
+            'spark.driverEnv.JAVA_HOME': '/opt/bitnami/java',
+            'spark.jars': '/data/clickhouse-jdbc.jar'
             'spark.executorEnv.JAVA_HOME': '/opt/bitnami/java',
             'spark.driverEnv.JAVA_HOME': '/opt/bitnami/java',
             'spark.jars': '/data/clickhouse-jdbc.jar'
@@ -87,5 +92,6 @@ with DAG(
     marketstack_url = create_marketstack_url('NVDA')
     marketstack_data = connect_to_marketstack_endpoint(marketstack_url)
 
+    marketstack_url >> marketstack_data >> submit_job
     marketstack_url >> marketstack_data >> submit_job
     #submit_job

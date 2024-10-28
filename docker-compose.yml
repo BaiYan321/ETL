@@ -2,11 +2,12 @@ services:
   airflow:
     depends_on:
       - postgres
+      - spark-master
     build:
       context: .
       args:
         AIRFLOW_VERSION: "2.9.3"
-        AIRFLOW_PYTHON_VERSION: "3.8"
+        AIRFLOW_PYTHON_VERSION: "3.11"
       dockerfile: Dockerfile.airflow
     networks:
       - etl-network
@@ -21,8 +22,9 @@ services:
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: airflow
       _AIRFLOW_WWW_USER_PASSWORD: airflow
-
     volumes:
+      - ./airflow:/airflow # Local airflow folder mounted into container
+      - ./spark/data:/data
       - ./airflow:/airflow #锁定当前的local folder到container里的airflow(即disk里的位置)。在dockercompse的文件里，人为建立的WORKDIR /airflow
       - ./spark/data:/data
     ports:
@@ -33,7 +35,32 @@ services:
         export PYTHONPATH="/airflow/dags:$PYTHONPATH"
         
         # Initialize Airflow DB
+        
+        # Initialize Airflow DB
         airflow db init
+        
+        # Create default Airflow user
+        airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} \
+          --firstname Admin --lastname User --role Admin --email admin@example.com \
+          --password ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+        
+        # Import connections from connections.json
+        if [ -f "/config/airflow/connections.json" ]; then
+          echo "Importing connections from connections.json..."
+          python /config/airflow/import_connections.py
+        else
+          echo "No connections.json file found, skipping connection import."
+        fi
+
+        # Import variables from variables.json
+        if [ -f "/config/airflow/variables.json" ]; then
+          echo "Importing variables from variables.json..."
+          airflow variables import /config/airflow/variables.json
+        else
+          echo "No variables.json file found, skipping variables import."
+        fi
+        
+        # Start Supervisor to run multiple Airflow services
         
         # Create default Airflow user
         airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} \
@@ -71,16 +98,16 @@ services:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
     volumes:
-      - ./postgres_data:/docker-entrypoint-initdb.d  # Mount custom SQL scripts here
+      - ./postgres_data:/docker-entrypoint-initdb.d # Mount custom SQL scripts here
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
+      test: [ "CMD", "pg_isready", "-U", "airflow" ]
       interval: 30s
       retries: 3
       start_period: 20s
-      
+
   spark-master:
     build:
-      context: . #build时lock一个path
+      context: .
       dockerfile: Dockerfile.spark
       args:
         SPARK_VERSION: "3.5.1"
@@ -95,13 +122,13 @@ services:
       - "7077:7077" # Spark Master port
     environment:
       - SPARK_MODE=master
-      - SPARK_MASTER_HOST=spark-master # Explicitly set Spark master host
+      - SPARK_MASTER_HOST=spark-master # Set Spark master host explicitly
       - SPARK_NO_DAEMONIZE=true
       - SPARK_DEPLOY_RECOVERY_MODE=NONE # Set this in the worker environment
       # - SPARK_CLASSPATH=/data/clickhouse-jdbc-0.3.2.jar
     volumes:
       - ./spark/data:/data
-      - ./spark/python_code:/usr/local/spark/python_code
+      - ./spark/logs:/data/spark-logs
     entrypoint: [ "/opt/bitnami/scripts/submit-job.sh" ]
 
   spark-worker:
@@ -140,7 +167,7 @@ services:
       - SPARK_HISTORY_OPTS=-Dspark.history.fs.logDirectory=/data/spark-logs
       - SPARK_NO_DAEMONIZE=true
     volumes:
-      - ./spark/data/spark-logs:/data/spark-logs
+      - ./spark/logs:/data/spark-logs
     ports:
       - "18080:18080" # Spark History Server UI
     entrypoint: [ "/opt/bitnami/spark/sbin/start-history-server.sh" ]

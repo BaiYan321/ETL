@@ -161,5 +161,8 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-spark-logs/
+# mouted logs and data files
+spark/logs
 airflow/supervisord.pid
+spark/data
+clickhouse/*
