@@ -1,0 +1,145 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, explode_outer, from_json, col, explode
+from pyspark.sql.types import StructType, StructField, ArrayType, FloatType, StringType, LongType
+import time
+
+def flatten(df):
+   #compute Complex Fields (Lists and Structs) in Schema   
+   complex_fields = dict([(field.name, field.dataType)
+                             for field in df.schema.fields
+                             if type(field.dataType) == ArrayType or  type(field.dataType) == StructType])
+   while len(complex_fields)!=0:
+      col_name=list(complex_fields.keys())[0]
+      print ("Processing :"+col_name+" Type : "+str(type(complex_fields[col_name])))
+    
+      # if StructType then convert all sub element to columns.
+      # i.e. flatten structs
+      if (type(complex_fields[col_name]) == StructType):
+         expanded = [col(col_name+'.'+k).alias(col_name+'_'+k) for k in [ n.name for n in  complex_fields[col_name]]]
+         df=df.select("*", *expanded).drop(col_name)
+    
+      # if ArrayType then add the Array Elements as Rows using the explode function
+      # i.e. explode Arrays
+      elif (type(complex_fields[col_name]) == ArrayType):    
+         df=df.withColumn(col_name,explode_outer(col_name))
+    
+      # recompute remaining Complex Fields in Schema       
+      complex_fields = dict([(field.name, field.dataType)
+                             for field in df.schema.fields
+                             if type(field.dataType) == ArrayType or  type(field.dataType) == StructType])
+   return df
+
+def start_streaming_app(max_retries=3, retry_delay=10):
+    retries = 0
+    spark = None
+    while retries < max_retries:
+        try:
+            spark = SparkSession.builder \
+                .appName("Kafka-Spark-Streaming") \
+                .config("spark.driver.extraClassPath", "/data/clickhouse-jdbc.jar") \
+                .getOrCreate()
+
+            #########################################
+
+            # Define schema for "data" array
+            data_schema = ArrayType(StructType([
+                StructField("adj_close", FloatType(), True),
+                StructField("adj_high", FloatType(), True),
+                StructField("adj_low", FloatType(), True),
+                StructField("adj_open", FloatType(), True),
+                StructField("adj_volume", FloatType(), True),
+                StructField("close", FloatType(), True),
+                StructField("date", StringType(), True),
+                StructField("dividend", FloatType(), True),
+                StructField("exchange", StringType(), True),
+                StructField("high", FloatType(), True),
+                StructField("low", FloatType(), True),
+                StructField("open", FloatType(), True),
+                StructField("split_factor", FloatType(), True),
+                StructField("symbol", StringType(), True),
+                StructField("volume", LongType(), True)
+            ]))
+
+            # Define schema for full JSON
+            schema = StructType([
+                StructField("data", data_schema, True),
+                StructField("pagination", StructType([
+                    StructField("count", LongType(), True),
+                    StructField("limit", LongType(), True),
+                    StructField("offset", LongType(), True),
+                    StructField("total", LongType(), True)
+                ]), True)
+            ])
+
+            # Initialize Spark session
+            #spark = SparkSession.builder.appName("KafkaSparkJSONProcessing").getOrCreate()
+
+            # Read from Kafka topic
+            df = spark.readStream \
+                .format("kafka") \
+                .option("kafka.bootstrap.servers", "kafka1:29092") \
+                .option("subscribe", "etl_topic") \
+                .load()
+
+            # Convert Kafka value to string
+            json_df = df.selectExpr("CAST(value AS STRING) as json_string")
+
+            # Parse JSON and select only "data" array, then expand elements
+            parsed_df = json_df.withColumn("parsed_json", from_json(col("json_string"), schema)) \
+                .select(explode("parsed_json.data").alias("data_element"))
+
+            # Select fields from data_element
+            final_df = parsed_df.select(
+                col("data_element.symbol").alias("Symbol"),
+                col("data_element.date").alias("Date"),
+                col("data_element.open").alias("Open"),
+                col("data_element.close").alias("Close"),
+                col("data_element.low").alias("Low"),
+                col("data_element.high").alias("High"),  
+                col("data_element.volume").alias("Volume")
+                )
+
+            final_df = final_df.withColumn('Date', final_df['Date'].cast('date'))
+
+            final_df = final_df.withColumn('Growth', (final_df['Close'] - final_df['Open']))\
+                    .withColumn('GrowthPct', (final_df['Close'] - final_df['Open'])/final_df['Close'])
+            # #########################################################
+
+            # Write the output to the console (for testing, use appropriate sink in production)
+            clickhouse_url = "jdbc:clickhouse://clickhouse:8123/marketstack_db"
+                    
+            query = final_df.writeStream \
+                    .foreachBatch(lambda batch_df, batch_id: batch_df.write \
+                        .format("jdbc") \
+                        .option("driver", "com.clickhouse.jdbc.ClickHouseDriver") \
+                        .option("url", clickhouse_url) \
+                        .option("dbtable", "marketstack_db.marketstack_streaming") \
+                        .option("user", "default") \
+                        .option("password", "default") \
+                        .mode("append") \
+                        # .format("console") \
+                        # .mode("append") \
+                        .save()) \
+                    .trigger(processingTime="10 seconds") \
+                    .start()
+
+            # Await termination of the streaming query
+            query.awaitTermination()
+            print(
+                f"Streaming job started successfully on attempt {retries + 1}.")
+            break  # Exit the loop if successful
+
+        except Exception as e:
+            retries += 1
+            print(f"Error occurred: {e}. Attempt {retries} of {max_retries}.")
+            if retries >= max_retries:
+                print("Max retries reached. Shutting down the job.")
+                if spark:
+                    spark.stop()
+            else:
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)  # Wait before retrying
+
+
+# Start the streaming app with retries
+start_streaming_app(max_retries=3, retry_delay=10)

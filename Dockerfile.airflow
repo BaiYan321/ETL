@@ -77,7 +77,6 @@ USER airflow
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 # test airflow home
 
-
 # Expose the Airflow webserver port
 EXPOSE 8080
 

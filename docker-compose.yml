@@ -9,6 +9,8 @@ services:
         AIRFLOW_VERSION: "2.9.3"
         AIRFLOW_PYTHON_VERSION: "3.11"
       dockerfile: Dockerfile.airflow
+    networks:
+      - etl-network
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__DAGS_FOLDER: "/airflow/dags"
@@ -23,6 +25,8 @@ services:
     volumes:
       - ./airflow:/airflow # Local airflow folder mounted into container
       - ./spark/data:/data
+      - ./airflow:/airflow #锁定当前的local folder到container里的airflow(即disk里的位置)。在dockercompse的文件里，人为建立的WORKDIR /airflow
+      - ./spark/data:/data
     ports:
       - "8080:8080"
     entrypoint: >
@@ -31,7 +35,32 @@ services:
         export PYTHONPATH="/airflow/dags:$PYTHONPATH"
         
         # Initialize Airflow DB
+        
+        # Initialize Airflow DB
         airflow db init
+        
+        # Create default Airflow user
+        airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} \
+          --firstname Admin --lastname User --role Admin --email admin@example.com \
+          --password ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+        
+        # Import connections from connections.json
+        if [ -f "/config/airflow/connections.json" ]; then
+          echo "Importing connections from connections.json..."
+          python /config/airflow/import_connections.py
+        else
+          echo "No connections.json file found, skipping connection import."
+        fi
+
+        # Import variables from variables.json
+        if [ -f "/config/airflow/variables.json" ]; then
+          echo "Importing variables from variables.json..."
+          airflow variables import /config/airflow/variables.json
+        else
+          echo "No variables.json file found, skipping variables import."
+        fi
+        
+        # Start Supervisor to run multiple Airflow services
         
         # Create default Airflow user
         airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} \
@@ -61,6 +90,8 @@ services:
   postgres:
     image: postgres:15.8
     restart: always
+    networks:
+      - etl-network
     ports:
       - "5432:5432"
     environment:
@@ -81,6 +112,11 @@ services:
       args:
         SPARK_VERSION: "3.5.1"
     container_name: spark-master
+    depends_on:
+      - kafka1
+      - clickhouse
+    networks:
+      - etl-network
     ports:
       - "8082:8080" # Spark UI
       - "7077:7077" # Spark Master port
@@ -89,16 +125,20 @@ services:
       - SPARK_MASTER_HOST=spark-master # Set Spark master host explicitly
       - SPARK_NO_DAEMONIZE=true
       - SPARK_DEPLOY_RECOVERY_MODE=NONE # Set this in the worker environment
+      # - SPARK_CLASSPATH=/data/clickhouse-jdbc-0.3.2.jar
     volumes:
       - ./spark/data:/data
       - ./spark/logs:/data/spark-logs
-    entrypoint: [ "/opt/bitnami/spark/sbin/start-master.sh" ]
+    entrypoint: [ "/opt/bitnami/scripts/submit-job.sh" ]
 
   spark-worker:
     image: bitnami/spark:3.5.1
     container_name: spark-worker
+    networks:
+      - etl-network
     depends_on:
       - spark-master
+      - clickhouse
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER=spark://spark-master:7077
@@ -106,9 +146,11 @@ services:
       - SPARK_WORKER_MEMORY=4G
       - SPARK_WORKER_LOG_DIR=/data/spark-logs
       - SPARK_DEPLOY_RECOVERY_MODE=NONE
+      # - SPARK_CLASSPATH=/data/clickhouse-jdbc-0.3.2.jar
     volumes:
       - ./spark/data:/data
-      - ./spark/logs:/data/spark-logs
+      - ./spark/data/spark-logs:/data/spark-logs 
+      - ./spark/python_code:/usr/local/spark/python_code
     ports:
       - "8081:8081"
 
@@ -119,6 +161,8 @@ services:
       args:
         SPARK_VERSION: "3.5.1"
     container_name: spark-history-server
+    networks:
+      - etl-network
     environment:
       - SPARK_HISTORY_OPTS=-Dspark.history.fs.logDirectory=/data/spark-logs
       - SPARK_NO_DAEMONIZE=true
@@ -128,9 +172,73 @@ services:
       - "18080:18080" # Spark History Server UI
     entrypoint: [ "/opt/bitnami/spark/sbin/start-history-server.sh" ]
 
+  zoo1:
+    image: confluentinc/cp-zookeeper:7.3.2
+    hostname: zoo1
+    networks:
+     - etl-network
+    container_name: zoo1
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_SERVERS: zoo1:2888:3888 #2888 follower port 3888 election port
+
+  kafka1:
+    image: confluentinc/cp-kafka:7.3.2
+    hostname: kafka1
+    container_name: kafka1
+    networks:
+      - etl-network
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+      - "9999:9999"
+    environment:
+      # KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka1:19092,EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9092,DOCKER://host.docker.internal:29092
+      # KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,DOCKER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zoo1:2181"
+      KAFKA_BROKER_ID: 1
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_JMX_PORT: 9999 # data of Kafka itself
+      KAFKA_JMX_HOSTNAME: ${DOCKER_HOST_IP:-127.0.0.1}
+      KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.authorizer.AclAuthorizer
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "true"
+    depends_on:
+      - zoo1
+
+  init-kafka:
+    image: confluentinc/cp-kafka:7.3.2
+    depends_on:
+    - kafka1
+    networks:
+      - etl-network
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+        "
+        # blocks until kafka is reachable
+        kafka-topics --bootstrap-server kafka1:29092 --list
+        echo -e 'Creating kafka topics'
+        kafka-topics --bootstrap-server kafka1:29092 --create --if-not-exists --topic etl_topic --replication-factor 1 --partitions 1 # set up name of topic, and number of partitions
+        echo -e 'Successfully created the following topics:'
+        kafka-topics --bootstrap-server kafka1:29092 --list
+        "
+
   clickhouse:
-    image: clickhouse/clickhouse-server:24.3.12-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.clickhouse
     container_name: clickhouse
+    hostname: clickhouse
+    networks:
+      - etl-network
     environment:
       - CLICKHOUSE_DB=marketstack_db
       - CLICKHOUSE_USER=default
@@ -140,14 +248,24 @@ services:
       - "8123:8123"
       - "9000:9000"
     volumes:
-      - clickhouse_data:/var/lib/clickhouse/
       - ./clickhouse/log:/var/log/clickhouse-server/
+      - clickhouse_data:/var/lib/clickhouse  # Mount for data persistence
+      - clickhouse_config:/etc/clickhouse-server/config.d  # Mount for custom configuration
+      - ./clickhouse/scripts/create_table.sh:/docker-entrypoint-initdb.d/create_table.sh 
     healthcheck: 
       test: ["CMD", "clickhouse-client", "--query", "SELECT 1"] 
       interval: 10s 
       retries: 5 
       start_period: 10s
+    entrypoint: ["/entrypoint.sh"]
+    command: ["/bin/sh", "-c", "/create_table.sh && tail -f /dev/null"]
 
 volumes:
   postgres_data:
   clickhouse_data:
+  clickhouse_config:
+  # kafka_data:
+  #   driver: local
+networks:
+  etl-network:
+    driver: bridge

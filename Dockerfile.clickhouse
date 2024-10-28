@@ -1,0 +1,12 @@
+FROM clickhouse/clickhouse-server:24.3.12-alpine
+
+WORKDIR /clickhouse/
+
+# Install curl
+RUN apk update && apk add curl
+
+COPY ./clickhouse/scripts/create_table.sh /create_table.sh
+RUN chmod +x /create_table.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/bin/sh", "-c", "/create_table.sh && tail -f /dev/null"]
+
