@@ -26,23 +26,6 @@ with DAG(
     catchup=False
 ) as dag:
     
-    # @task()
-    # def create_nyt_url():
-    #     print(nyt_key)
-    #     return "https://api.nytimes.com/svc/mostpopular/v2/viewed/1.json?api-key={}".format(nyt_key)
-
-    # @task()
-    # def connect_to_nyt_endpoint(url):
-    #     response = requests.request("GET", url)
-    #     print('code',response.status_code)
-    #     if response.status_code != 200:
-    #         raise Exception(
-    #             "Request returned an error: {} {}".format(
-    #                 response.status_code, response.text
-    #             )
-    #         )
-    #     return json.dumps(response.json(), indent=4, sort_keys=True) # return json data
-    
     @task()
     def create_marketstack_url(stock_name='NVDA'):
         return 'http://api.marketstack.com/v1/eod/latest?access_key={}&symbols={}'.format(marketstack_access_key,stock_name)
