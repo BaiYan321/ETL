@@ -105,16 +105,16 @@ services:
       # - FLUENTD_PLUGIN=fluent-plugin-elasticsearch
     volumes:
       #- ./fluentd/etc/fluentd.conf:/fluentd/etc/fluentd.conf
-      - ./fluentd/etc/fluentd.conf:/fluentd/etc/fluent.conf
+      - ./fluentd/etc/fluentd.conf:/fluentd/etc/fluent.conf #replace official conf with local conf file
       - fluentd_data:/fluentd/log
+      - kafka_logs:/var/log/kafka  # Mount Kafka logs directory into Fluentd
     ports:
-      - 24224:24224
+      - "24224:24224"
       - "24224:24224/udp"
       - 9880:9880  
     depends_on:
       es01:
         condition: service_healthy  # Ensures Elasticsearch is healthy before starting Fluentd
-
 
   postgres:
     image: postgres:15.8
@@ -240,6 +240,9 @@ services:
       KAFKA_JMX_HOSTNAME: ${DOCKER_HOST_IP:-127.0.0.1}
       KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.authorizer.AclAuthorizer
       KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "true"
+      KAFKA_LOG_DIRS: /var/log/kafka # create
+    volumes:
+      - kafka_logs:/var/log/kafka
     depends_on:
       - zoo1
 
@@ -332,6 +335,7 @@ volumes:
   clickhouse_config:
   esdata:
   fluentd_data:
+  kafka_logs:
   # kafka_data:
   #   driver: local
 networks:
