@@ -20,7 +20,7 @@
   {
     "conn_id": "elasticsearch_local",
     "conn_type": "http",
-    "user": "elastic",
+    "login": "elastic",
     "password": "pass",
     "host": "es01",
     "port": 9200,
