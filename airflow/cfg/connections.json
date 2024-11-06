@@ -18,9 +18,13 @@
     "extra": "{\"spark_binary\": \"/opt/bitnami/spark/bin/spark-submit\"}"
   },
   {
-    "conn_id": "elasticsearch_default",
-    "conn_type": "Elasticsearch",
-    "host": "localhost",
-    "port": 9200
+    "conn_id": "elasticsearch_local",
+    "conn_type": "http",
+    "user": "elastic",
+    "password": "pass",
+    "host": "es01",
+    "port": 9200,
+    "schema": null,
+    "extra": null
   }
 ]

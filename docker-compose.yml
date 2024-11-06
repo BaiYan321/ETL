@@ -27,14 +27,15 @@ services:
       AIRFLOW__CORE__EXECUTOR: "LocalExecutor"  # Set other environment variables if needed
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
       AIRFLOW__CORE__REMOTE_LOGGING: "True"
-      AIRFLOW__CORE__REMOTE_LOG_CONN_ID: "elasticsearch_default"
+      AIRFLOW__CORE__REMOTE_LOG_CONN_ID: "elasticsearch_local"
       AIRFLOW__LOGGING__REMOTE_LOGGING: "True"
       AIRFLOW__ELASTICSEARCH__WRITE_STDOUT: "True"
-      # AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: "http://localhost:9200"  # connect to Elasticsearch directly
       AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: "http://fluentd:9880" # use fluentd to connect log to es
       AIRFLOW__ELASTICSEARCH__HOST: "http://es01:9200"  # Ensure this is the correct Elasticsearch endpoint
-      AIRFLOW__ELASTICSEARCH__LOG_ID_TEMPLATE: "{{ dag_id }}-{{ task_id }}-{{ execution_date }}-{{ try_number }}"
-      AIRFLOW__ELASTICSEARCH__ENDPOINT_PREFIX: "airflow-logs-index"
+      AIRFLOW__ELASTICSEARCH__INDEX_PATTERNS: fluentd-airflow*
+      AIRFLOW__LOGGING__REMOTE__LOG_CONN_ID: "elasticsearch_local"
+      AIRFLOW__ELASTICSEARCH_CONFIGS__VERIFY_CERTS: "False"
+      AIRFLOW__ELASTICSEARCH__FRONTEND: 'http://localhost:5601/app/kibana#/discover?_a=(columns:!(message),query:(language:kuery,query:''log_id: "{log_id}"''),sort:!(log.offset,asc))'  # Optional if Fluentd needs this configuration
     logging:
       driver: "fluentd"
       options:
@@ -224,6 +225,11 @@ services:
       - "9092:9092"
       - "29092:29092"
       - "9999:9999"
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: kafka.logs      
     environment:
       # KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka1:19092,EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9092,DOCKER://host.docker.internal:29092
