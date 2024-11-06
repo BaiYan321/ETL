@@ -4,7 +4,6 @@ services:
       - postgres
       - spark-master
       - es01
-      - fluentd
     build:
       context: .
       args:
@@ -30,7 +29,8 @@ services:
       AIRFLOW__CORE__REMOTE_LOG_CONN_ID: "elasticsearch_local"
       AIRFLOW__LOGGING__REMOTE_LOGGING: "True"
       AIRFLOW__ELASTICSEARCH__WRITE_STDOUT: "True"
-      AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: "http://fluentd:9880" # use fluentd to connect log to es
+      AIRFLOW__ELASTICSEARCH__JSON_FORMAT: "True"
+      AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: "http://fluentd:9880/airflow.logs.http" # use fluentd to connect log to es
       AIRFLOW__ELASTICSEARCH__HOST: "http://es01:9200"  # Ensure this is the correct Elasticsearch endpoint
       AIRFLOW__ELASTICSEARCH__INDEX_PATTERNS: fluentd-airflow*
       AIRFLOW__LOGGING__REMOTE__LOG_CONN_ID: "elasticsearch_local"
@@ -52,7 +52,7 @@ services:
         export PYTHONPATH="/airflow/dags:$PYTHONPATH"
 
         # Initialize Airflow DB
-        airflow db init
+        airflow db migrate
         
         # Create default Airflow user
         airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} \
@@ -90,8 +90,13 @@ services:
           echo "No airflow.cfg file found, skipping configuration import."
         fi
         
-        # Start Supervisor to run multiple Airflow services
-        exec supervisord -c /etc/supervisor/conf.d/supervisord.conf
+        # Start Airflow webserver in the background
+        echo "Starting Airflow webserver..."
+        airflow webserver --port 8080 &
+
+        # Start Airflow scheduler in the foreground
+        echo "Starting Airflow scheduler..."
+        exec airflow scheduler
       '
   fluentd:
     build:
@@ -99,20 +104,20 @@ services:
       dockerfile: Dockerfile.fluentd
     networks:
       - etl-network
+    hostname: fluentd
+    container_name: fluentd
     environment:
       - FLUENT_ELASTICSEARCH_HOST=es01  # Adjust based on your Elasticsearch service name in Docker Compose
       - FLUENT_ELASTICSEARCH_PORT=9200
       - FLUENTD_CONF=fluent.conf
-      # - FLUENTD_PLUGIN=fluent-plugin-elasticsearch
     volumes:
-      #- ./fluentd/etc/fluentd.conf:/fluentd/etc/fluentd.conf
       - ./fluentd/etc/fluentd.conf:/fluentd/etc/fluent.conf #replace official conf with local conf file
       - fluentd_data:/fluentd/log
       - kafka_logs:/var/log/kafka  # Mount Kafka logs directory into Fluentd
     ports:
       - "24224:24224"
       - "24224:24224/udp"
-      - 9880:9880  
+      - "9880:9880"
     depends_on:
       es01:
         condition: service_healthy  # Ensures Elasticsearch is healthy before starting Fluentd
@@ -155,7 +160,6 @@ services:
       - SPARK_MASTER_HOST=spark-master # Set Spark master host explicitly
       - SPARK_NO_DAEMONIZE=true
       - SPARK_DEPLOY_RECOVERY_MODE=NONE # Set this in the worker environment
-      # - SPARK_CLASSPATH=/data/clickhouse-jdbc-0.3.2.jar
     volumes:
       - ./spark/data:/data
       - ./spark/logs:/data/spark-logs
@@ -225,11 +229,6 @@ services:
       - "9092:9092"
       - "29092:29092"
       - "9999:9999"
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: localhost:24224
-        tag: kafka.logs      
     environment:
       # KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka1:19092,EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9092,DOCKER://host.docker.internal:29092
@@ -280,7 +279,7 @@ services:
     environment:
       - CLICKHOUSE_DB=marketstack_db
       - CLICKHOUSE_USER=default
-      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
       - CLICKHOUSE_PASSWORD=default
     ports:
       - "8123:8123"
@@ -289,14 +288,13 @@ services:
       - ./clickhouse/log:/var/log/clickhouse-server/
       - clickhouse_data:/var/lib/clickhouse  # Mount for data persistence
       - clickhouse_config:/etc/clickhouse-server/config.d  # Mount for custom configuration
-      - ./clickhouse/scripts/create_table.sh:/docker-entrypoint-initdb.d/create_table.sh 
-    healthcheck: 
-      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"] 
-      interval: 10s 
-      retries: 5 
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      retries: 5
       start_period: 10s
-    entrypoint: ["/entrypoint.sh"]
-    command: ["/bin/sh", "-c", "/create_table.sh && tail -f /dev/null"]
+    command: ["/bin/bash", "-c", "/create_table.sh && tail -f /dev/null"]  # Run the script and keep container running
+
 
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
@@ -342,8 +340,6 @@ volumes:
   esdata:
   fluentd_data:
   kafka_logs:
-  # kafka_data:
-  #   driver: local
 networks:
   etl-network:
     driver: bridge
