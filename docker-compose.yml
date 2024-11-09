@@ -333,10 +333,21 @@ services:
     networks:
       - etl-network
 
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - etl-network
+
 volumes:
   postgres_data:
   clickhouse_data:
   clickhouse_config:
+  grafana-data:
   esdata:
   fluentd_data:
   kafka_logs:
