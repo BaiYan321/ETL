@@ -338,10 +338,30 @@ services:
     container_name: grafana
     ports:
       - 3000:3000
+      - 25:25
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=mailhog:1025
+      # - GF_SMTP_USER=apikey
+      # - GF_SMTP_PASSWORD="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"
+      - GF_SMTP_SKIP_VERIFY="True"
+      - GF_SMTP_FROM_ADDRESS=cheng@gmail.com
+      # - GF_SMTP_STARTTLS_POLICY=OpportunisticStartTLS
     volumes:
       - grafana-data:/var/lib/grafana
     networks:
       - etl-network
+   
+  mailhog:
+    image: mailhog/mailhog
+    networks:
+      - etl-network
+    container_name: mailhog
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    restart: always
 
 volumes:
   postgres_data:
