@@ -9,13 +9,14 @@ This project demonstrates a robust ETL pipeline architecture that ingests data f
 
 ## 📋 Table of Contents
 
-- [Architecture Overview](#architecture-overview)
-- [Technologies Used](#technologies-used)
-- [Pipeline Flow](#pipeline-flow)
-- [Installation and Setup](#installation-and-setup)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license)
+- [Architecture Overview](#-architecture-overview)
+- [Technologies Used](#️-technologies-used)
+- [Pipeline Flow](#-pipeline-flow)
+- [Installation and Setup](#️-installation-and-setup)
+- [Usage](#-usage)
+- [Contributing](#-contributing)
+- [License](#-license)
+
 
 ---
 
@@ -129,9 +130,3 @@ We welcome contributions! Please submit a pull request or open an issue to discu
 ## 📝 License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
-
----
-
-## 📧 Contact
-
-If you have any questions, feel free to reach out at **your-email@example.com**.
