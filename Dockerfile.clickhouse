@@ -1,12 +1,14 @@
+# Use the official ClickHouse image as base
 FROM clickhouse/clickhouse-server:24.3.12-alpine
 
-WORKDIR /clickhouse/
+# Install curl and dos2unix
+RUN apk update && apk add curl dos2unix
 
-# Install curl
-RUN apk update && apk add curl
-
+# Copy the create_table.sh script to the container
 COPY ./clickhouse/scripts/create_table.sh /create_table.sh
+# Convert create_table.sh line endings from CRLF to LF using dos2unix
+RUN dos2unix /create_table.sh
+# Copy the script and make it executable
 RUN chmod +x /create_table.sh
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["/bin/sh", "-c", "/create_table.sh && tail -f /dev/null"]
-
+# Default command will be overridden by Docker Compose
+# ENTRYPOINT ["/entrypoint.sh"]

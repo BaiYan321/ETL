@@ -16,5 +16,15 @@
     "host": "spark://spark-master",
     "port": 7077,
     "extra": "{\"spark_binary\": \"/opt/bitnami/spark/bin/spark-submit\"}"
+  },
+  {
+    "conn_id": "elasticsearch_local",
+    "conn_type": "http",
+    "login": "elastic",
+    "password": "pass",
+    "host": "es01",
+    "port": 9200,
+    "schema": null,
+    "extra": null
   }
 ]

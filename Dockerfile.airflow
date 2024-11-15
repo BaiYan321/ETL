@@ -11,6 +11,8 @@ WORKDIR /airflow/
 
 COPY /airflow/cfg/requirements.txt  requirements.txt
 COPY /airflow/cfg/variables.json  variables.json
+COPY /airflow/cfg/airflow.cfg  airflow.cfg
+
 # Use ARG variables in the RUN command
 ARG AIRFLOW_VERSION
 ARG AIRFLOW_PYTHON_VERSION
@@ -82,5 +84,3 @@ EXPOSE 8080
 
 # Default entrypoint is Supervisor to run multiple processes
 ENTRYPOINT ["/bin/bash"]
-
-# ENTRYPOINT ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
