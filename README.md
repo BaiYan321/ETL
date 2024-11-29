@@ -1,5 +1,4 @@
 
-
 # ETL Pipeline Project
 
 This project demonstrates a robust ETL pipeline architecture that ingests data from external APIs, processes it, and stores it in optimized data storage solutions. The pipeline leverages a variety of technologies for data streaming, processing, and analytics. Below, we detail each component of the system, its role, and how they integrate to form a comprehensive ETL pipeline.

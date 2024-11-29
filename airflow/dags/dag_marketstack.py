@@ -13,10 +13,7 @@ default_args = {
     'retry_delay': timedelta(minutes=5)
 }
 
-#load_dotenv()
-#marketstack_access_key=os.getenv("MARKETSTACK_ACCESS_KEY")
 marketstack_access_key=Variable.get("MARKETSTACK_ACCESS_KEY")
-
 
 #使用decorator里的dag
 @dag(dag_id='dag_with_marketstack_api',
@@ -43,7 +40,7 @@ def marketstack_etl():
                 )
             )
         #return
-        return json.dumps(response.json(), indent=4, sort_keys=True)
+        return json.dumps(response.json(), indent=4, sort_keys=True) 
     
     #params = get_marketstack_params()    
     url = create_marketstack_url('NVDA')
