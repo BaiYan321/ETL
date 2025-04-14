@@ -10,6 +10,7 @@ RUN apt-get update && \
     dos2unix \
     python3-pip \
     rsync \
+    curl \
     openssh-client && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -17,18 +18,26 @@ RUN apt-get update && \
 ENV JAVA_HOME=/opt/bitnami/java
 ENV PATH=$PATH:$JAVA_HOME/bin
 
+
 # Set up directories for Spark logs and event logs with correct permissions
 RUN mkdir -p /data/spark-logs && chmod -R 777 /data/spark-logs
+RUN mkdir -p /opt/bitnami/scripts
+
 
 # Copy config files and Python code, ensuring Unix line endings
 COPY ./spark/conf/* /opt/bitnami/spark/conf/
 COPY ./spark/python_code/* /usr/local/spark/python_code/
+COPY ./spark/scripts/submit-job.sh /opt/bitnami/scripts/submit-job.sh
+
+# Make the scripts executable
+RUN chmod +x /opt/bitnami/scripts/submit-job.sh
 
 # Convert line endings to Unix format for config and Python files
-RUN find /opt/bitnami/spark/conf/ /usr/local/spark/python_code/ -type f -exec dos2unix {} \;
+RUN find /opt/bitnami/spark/conf/ /opt/bitnami/scripts /usr/local/spark/python_code/ -type f -exec dos2unix {} \;
 
 # Copy the requirements.txt file and install Python dependencies
 COPY ./spark/requirements.txt /tmp/requirements.txt
+
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
 # Set the default command

@@ -2,12 +2,16 @@ services:
   airflow:
     depends_on:
       - postgres
+      - spark-master
+      - es01
     build:
       context: .
       args:
         AIRFLOW_VERSION: "2.9.3"
-        AIRFLOW_PYTHON_VERSION: "3.8"
+        AIRFLOW_PYTHON_VERSION: "3.11"
       dockerfile: Dockerfile.airflow
+    networks:
+      - etl-network
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__DAGS_FOLDER: "/airflow/dags"
@@ -19,61 +23,156 @@ services:
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: airflow
       _AIRFLOW_WWW_USER_PASSWORD: airflow
+      AIRFLOW__CORE__EXECUTOR: "LocalExecutor"  # Set other environment variables if needed
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
+      AIRFLOW__CORE__REMOTE_LOGGING: "True"
+      AIRFLOW__CORE__REMOTE_LOG_CONN_ID: "elasticsearch_local"
+      AIRFLOW__LOGGING__REMOTE_LOGGING: "True"
+      AIRFLOW__ELASTICSEARCH__WRITE_STDOUT: "True"
+      AIRFLOW__ELASTICSEARCH__JSON_FORMAT: "True"
+      AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: "http://fluentd:9880/airflow.logs.http" # use fluentd to connect log to es
+      AIRFLOW__ELASTICSEARCH__HOST: "http://es01:9200"  # Ensure this is the correct Elasticsearch endpoint
+      AIRFLOW__ELASTICSEARCH__INDEX_PATTERNS: fluentd-airflow*
+      AIRFLOW__LOGGING__REMOTE__LOG_CONN_ID: "elasticsearch_local"
+      AIRFLOW__ELASTICSEARCH_CONFIGS__VERIFY_CERTS: "False"
+      AIRFLOW__ELASTICSEARCH__FRONTEND: 'http://localhost:5601/app/kibana#/discover?_a=(columns:!(message),query:(language:kuery,query:''log_id: "{log_id}"''),sort:!(log.offset,asc))'  # Optional if Fluentd needs this configuration
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: airflow.logs      
     volumes:
-      - ./airflow:/airflow #锁定当前的local folder到container里的airflow(即disk里的位置)。在dockercompse的文件里，人为建立的WORKDIR /airflow
+      - ./airflow:/airflow # Local airflow folder mounted into container
+      - ./spark/data:/data
     ports:
       - "8080:8080"
     entrypoint: >
       bash -c '
         mkdir -p /airflow/app/logs
         export PYTHONPATH="/airflow/dags:$PYTHONPATH"
-        airflow db init
-        airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} --firstname Admin --lastname User --role Admin --email admin@example.com --password ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
-        exec supervisord -c /etc/supervisor/conf.d/supervisord.conf
+
+        # Initialize Airflow DB
+        airflow db migrate
+        
+        # Create default Airflow user
+        airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} \
+          --firstname Admin --lastname User --role Admin --email admin@example.com \
+          --password ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+        
+        # Import variables from variables.json
+        if [ -f "/config/airflow/variables.json" ]; then
+          echo "Importing variables from variables.json..."
+          airflow variables import /config/airflow/variables.json
+        else
+          echo "No variables.json file found, skipping variables import."
+        fi
+        
+        # Start Supervisor to run multiple Airflow services
+        
+        # Create default Airflow user
+        airflow users create --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} \
+          --firstname Admin --lastname User --role Admin --email admin@example.com \
+          --password ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+        
+        # Import connections from connections.json
+        if [ -f "/config/airflow/connections.json" ]; then
+          echo "Importing connections from connections.json..."
+          python /config/airflow/import_connections.py
+        else
+          echo "No connections.json file found, skipping connection import."
+        fi
+
+        # Import cfg from airflow.cfg
+        if [ -f "/config/airflow/airflow.cfg" ]; then
+          echo "Importing configuration from airflow.cfg..."
+          airflow variables import /config/airflow/airflow.cfg
+        else
+          echo "No airflow.cfg file found, skipping configuration import."
+        fi
+        
+        # Start Airflow webserver in the background
+        echo "Starting Airflow webserver..."
+        airflow webserver --port 8080 &
+
+        # Start Airflow scheduler in the foreground
+        echo "Starting Airflow scheduler..."
+        exec airflow scheduler
       '
+  fluentd:
+    build:
+      context: .
+      dockerfile: Dockerfile.fluentd
+    networks:
+      - etl-network
+    hostname: fluentd
+    container_name: fluentd
+    environment:
+      - FLUENT_ELASTICSEARCH_HOST=es01  # Adjust based on your Elasticsearch service name in Docker Compose
+      - FLUENT_ELASTICSEARCH_PORT=9200
+      - FLUENTD_CONF=fluent.conf
+    volumes:
+      - ./fluentd/etc/fluentd.conf:/fluentd/etc/fluent.conf #replace official conf with local conf file
+      - fluentd_data:/fluentd/log
+      - kafka_logs:/var/log/kafka  # Mount Kafka logs directory into Fluentd
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+      - "9880:9880"
+    depends_on:
+      es01:
+        condition: service_healthy  # Ensures Elasticsearch is healthy before starting Fluentd
 
   postgres:
     image: postgres:15.8
     restart: always
+    networks:
+      - etl-network
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
     volumes:
-      - ./postgres_data:/docker-entrypoint-initdb.d  # Mount custom SQL scripts here
+      - ./postgres_data:/docker-entrypoint-initdb.d # Mount custom SQL scripts here
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
+      test: [ "CMD", "pg_isready", "-U", "airflow" ]
       interval: 30s
       retries: 3
       start_period: 20s
+
   spark-master:
     build:
-      context: . #build时lock一个path
+      context: .
       dockerfile: Dockerfile.spark
       args:
         SPARK_VERSION: "3.5.1"
     container_name: spark-master
+    depends_on:
+      - kafka1
+      - clickhouse
+    networks:
+      - etl-network
     ports:
       - "8082:8080" # Spark UI
       - "7077:7077" # Spark Master port
-    # extra_hosts:
-    #   - "spark-master:172.23.0.3"
     environment:
       - SPARK_MODE=master
-      - SPARK_MASTER_HOST=spark-master # Explicitly set Spark master host
+      - SPARK_MASTER_HOST=spark-master # Set Spark master host explicitly
       - SPARK_NO_DAEMONIZE=true
       - SPARK_DEPLOY_RECOVERY_MODE=NONE # Set this in the worker environment
     volumes:
       - ./spark/data:/data
-      - ./spark/python_code:/usr/local/spark/python_code
-    entrypoint: [ "/opt/bitnami/spark/sbin/start-master.sh" ]
+      - ./spark/logs:/data/spark-logs
+    entrypoint: [ "/opt/bitnami/scripts/submit-job.sh" ] # pause for now
 
   spark-worker:
     image: bitnami/spark:3.5.1
     container_name: spark-worker
+    networks:
+      - etl-network
     depends_on:
       - spark-master
+      - clickhouse
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER=spark://spark-master:7077
@@ -81,13 +180,13 @@ services:
       - SPARK_WORKER_MEMORY=4G
       - SPARK_WORKER_LOG_DIR=/data/spark-logs
       - SPARK_DEPLOY_RECOVERY_MODE=NONE
+      # - SPARK_CLASSPATH=/data/clickhouse-jdbc-0.3.2.jar
     volumes:
       - ./spark/data:/data
       - ./spark/data/spark-logs:/data/spark-logs 
+      - ./spark/python_code:/usr/local/spark/python_code
     ports:
       - "8081:8081"
-    # extra_hosts:
-    #   - "spark-master:172.23.0.3"
 
   spark-history-server:
     build:
@@ -96,14 +195,182 @@ services:
       args:
         SPARK_VERSION: "3.5.1"
     container_name: spark-history-server
+    networks:
+      - etl-network
     environment:
       - SPARK_HISTORY_OPTS=-Dspark.history.fs.logDirectory=/data/spark-logs
       - SPARK_NO_DAEMONIZE=true
     volumes:
-      - ./spark/data/spark-logs:/data/spark-logs
+      - ./spark/logs:/data/spark-logs
     ports:
       - "18080:18080" # Spark History Server UI
     entrypoint: [ "/opt/bitnami/spark/sbin/start-history-server.sh" ]
 
+  zoo1:
+    image: confluentinc/cp-zookeeper:7.3.2
+    hostname: zoo1
+    networks:
+     - etl-network
+    container_name: zoo1
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_SERVERS: zoo1:2888:3888 #2888 follower port 3888 election port
+
+  kafka1:
+    image: confluentinc/cp-kafka:7.3.2
+    hostname: kafka1
+    container_name: kafka1
+    networks:
+      - etl-network
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+      - "9999:9999"
+    environment:
+      # KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka1:19092,EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9092,DOCKER://host.docker.internal:29092
+      # KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,DOCKER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zoo1:2181"
+      KAFKA_BROKER_ID: 1
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_JMX_PORT: 9999 # data of Kafka itself
+      KAFKA_JMX_HOSTNAME: ${DOCKER_HOST_IP:-127.0.0.1}
+      KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.authorizer.AclAuthorizer
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "true"
+      KAFKA_LOG_DIRS: /var/log/kafka # create
+    volumes:
+      - kafka_logs:/var/log/kafka
+    depends_on:
+      - zoo1
+
+  init-kafka:
+    image: confluentinc/cp-kafka:7.3.2
+    depends_on:
+    - kafka1
+    networks:
+      - etl-network
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+        "
+        # blocks until kafka is reachable
+        kafka-topics --bootstrap-server kafka1:29092 --list
+        echo -e 'Creating kafka topics'
+        kafka-topics --bootstrap-server kafka1:29092 --create --if-not-exists --topic etl_topic --replication-factor 1 --partitions 1 # set up name of topic, and number of partitions
+        echo -e 'Successfully created the following topics:'
+        kafka-topics --bootstrap-server kafka1:29092 --list
+        "
+
+  clickhouse:
+    build:
+      context: .
+      dockerfile: Dockerfile.clickhouse
+    container_name: clickhouse
+    hostname: clickhouse
+    networks:
+      - etl-network
+    environment:
+      - CLICKHOUSE_DB=marketstack_db
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+      - CLICKHOUSE_PASSWORD=default
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ./clickhouse/log:/var/log/clickhouse-server/
+      - clickhouse_data:/var/lib/clickhouse  # Mount for data persistence
+      - clickhouse_config:/etc/clickhouse-server/config.d  # Mount for custom configuration
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    command: ["/bin/bash", "-c", "/create_table.sh && tail -f /dev/null"]  # Run the script and keep container running
+
+
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: es01
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - node.name=es01
+      - cluster.name=escluster
+      - ELASTIC_USERNAME=elastic
+      - ELASTIC_PASSWORD=pass
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - etl-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    environment:
+      - ELASTICSEARCH_HOSTS=http://es01:9200
+      - ELASTICSEARCH_USERNAME=kibana
+      - ELASTICSEARCH_PASSWORD=kibanapass
+      - SERVER_PUBLICBASEURL=http://localhost:5601
+    ports:
+      - 5601:5601
+    depends_on:
+      es01:
+       condition: service_healthy    
+    networks:
+      - etl-network
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - 3000:3000
+      - 25:25
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=mailhog:1025
+      # - GF_SMTP_USER=apikey
+      # - GF_SMTP_PASSWORD="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"
+      - GF_SMTP_SKIP_VERIFY="True"
+      - GF_SMTP_FROM_ADDRESS=cheng@gmail.com
+      # - GF_SMTP_STARTTLS_POLICY=OpportunisticStartTLS
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - etl-network
+   
+  mailhog:
+    image: mailhog/mailhog
+    networks:
+      - etl-network
+    container_name: mailhog
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    restart: always
+
 volumes:
   postgres_data:
+  clickhouse_data:
+  clickhouse_config:
+  grafana-data:
+  esdata:
+  fluentd_data:
+  kafka_logs:
+networks:
+  etl-network:
+    driver: bridge
